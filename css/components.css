@@ -1,0 +1,590 @@
+/* 컴포넌트 스타일. 단계별로 필요한 것만 추가한다. */
+
+/* 버튼 (가이드 6장) — 높이 48px, 좌우 여백 24px */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--size-button-h);
+  padding: 0 var(--space-4);
+  border: 0;
+  border-radius: var(--radius-button);
+  font-size: var(--fs-button);
+  line-height: var(--lh-button);
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color var(--dur-fast) var(--ease), transform var(--dur-fast) var(--ease);
+}
+
+.btn:active { transform: scale(0.98); }
+.btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.btn--primary {
+  width: 100%;
+  background: var(--color-sunset);
+  color: var(--color-on-sunset);
+}
+
+.btn--primary:hover:not(:disabled),
+.btn--primary:active:not(:disabled) {
+  background: var(--color-sunset-pressed);
+}
+
+/* 가벼운 링크형 버튼 (예: 이전, 다시 시도) */
+.btn--text {
+  background: none;
+  color: var(--color-sunset-deep);
+  padding: 0 var(--space-3);
+}
+
+.btn--text:hover:not(:disabled) { text-decoration: underline; }
+
+/* 왼쪽 정렬된 글자 버튼은 안쪽 여백(16px)만큼 왼쪽으로 당겨, 글자가 가장자리에 맞게 한다.
+   터치 영역(높이 48px, 폭 = 글자 + 32px)은 그대로이고, 눌리는 범위만 왼쪽 여백 쪽으로 넓어진다.
+   - 카드 밖 줄(.text-actions, .actions): 글자가 카드 왼쪽 가장자리와 맞는다 (넓어진 범위는 좌우 여백 20px 안)
+   - 안내 상자(.notice): 글자가 상자 안쪽 여백(16px)과 맞는다 (넓어진 범위는 상자 안쪽) */
+.text-actions > .btn--text:first-child,
+.actions > .btn--text:first-child,
+.notice > .btn--text { margin-left: calc(-1 * var(--space-3)); }
+
+/* 아이콘 (선 1.5px SVG를 마스크로 써서 글자색을 따라간다) */
+.icon {
+  display: inline-block;
+  flex: none;
+  width: var(--icon-size, 20px);
+  height: var(--icon-size, 20px);
+  background: currentColor;
+  -webkit-mask: var(--icon) center / contain no-repeat;
+  mask: var(--icon) center / contain no-repeat;
+}
+
+/* 헤더의 목업 표시 — API 연결 전 데이터임을 알린다 */
+.mock-badge {
+  margin-left: auto;
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-pill);
+  background: var(--color-peach);
+  color: var(--color-warm-gray);
+  font-size: var(--fs-caption);
+  line-height: var(--lh-caption);
+}
+
+h1:focus { outline: none; }
+
+/* 진행 바 */
+.progress { display: flex; align-items: center; gap: var(--space-2); }
+
+.progress__track {
+  flex: 1;
+  height: var(--space-2);
+  border-radius: var(--radius-pill);
+  background: var(--color-border);
+  overflow: hidden;
+}
+
+.progress__fill {
+  height: 100%;
+  width: calc(var(--step) / var(--total) * 100%);
+  border-radius: var(--radius-pill);
+  background: var(--color-amber);
+  transition: width var(--dur-base) var(--ease);
+}
+
+/* 폼·입력창 (가이드 6장) — 높이 56px, 테두리 1px Warm Gray, 포커스 시 Sunset 2px */
+.form { display: flex; flex-direction: column; gap: var(--space-4); }
+.field { display: flex; flex-direction: column; gap: var(--space-2); }
+
+.field__label {
+  font-size: var(--fs-chip);
+  line-height: var(--lh-chip);
+  font-weight: 600;
+  color: var(--color-warm-gray);
+}
+
+.field__input,
+.date-field {
+  min-height: var(--size-input-h);
+  border: 1px solid var(--color-warm-gray);
+  border-radius: var(--radius-input);
+  background: var(--color-cream);
+}
+
+.field__input {
+  width: 100%;
+  padding: 0 var(--space-3);
+  font-size: var(--fs-body);
+}
+
+.field__input:focus,
+.date-field:focus-within {
+  outline: none;
+  border-color: var(--color-sunset);
+  box-shadow: 0 0 0 1px var(--color-sunset);
+}
+
+/* 편명 입력: 24px Bold, 소문자로 써도 대문자로 보여 준다. 안내 문구는 작게 */
+.field__input--flight {
+  font-size: var(--fs-flight-input);
+  line-height: var(--lh-flight-input);
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.field__input--flight::placeholder {
+  font-size: var(--fs-body);
+  font-weight: 400;
+  text-transform: none;
+  color: var(--color-warm-gray);
+}
+
+.field__input[aria-invalid="true"] {
+  border-color: var(--color-sunset-deep);
+  box-shadow: 0 0 0 1px var(--color-sunset-deep);
+}
+
+/* 오류 문구: 색뿐 아니라 아이콘과 글자로도 알린다 (빨강은 쓰지 않는다) */
+.field__error,
+.notice__text {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  color: var(--color-sunset-deep);
+  font-size: var(--fs-caption);
+  line-height: var(--lh-caption);
+}
+
+.field__error:empty { display: none; }
+
+/* 도착 날짜: 읽기 쉬운 글자를 보여 주고, 실제 날짜 입력은 그 위에 투명하게 겹친다 */
+.date-field {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: 0 var(--space-3);
+}
+
+.date-field__value { font-size: var(--fs-body); font-weight: 600; }
+
+.date-field__hint {
+  font-size: var(--fs-chip);
+  line-height: var(--lh-chip);
+  font-weight: 600;
+  color: var(--color-sunset-deep);
+}
+
+.date-field__input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+  font-size: var(--fs-body);
+}
+
+/* 항공편 결과 카드 (선택용). 카드 전체가 하나의 선택 영역이다. */
+.flight-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.flight-card { display: block; position: relative; cursor: pointer; }
+
+/* 라디오는 숨기되 키보드로는 그대로 움직인다 (방향키로 이동, 스페이스로 선택) */
+.flight-card__input {
+  position: absolute;
+  opacity: 0;
+  width: 1px;
+  height: 1px;
+}
+
+.flight-card__body {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+  min-height: var(--size-touch-min);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  background: var(--color-peach);
+  color: var(--color-ink);
+  transition: background-color var(--dur-fast) var(--ease), transform var(--dur-fast) var(--ease);
+}
+
+.flight-card:active .flight-card__body { transform: scale(0.98); }
+
+.flight-card__main { display: flex; flex-direction: column; gap: var(--space-1); }
+
+.flight-card__no { font-size: var(--fs-h3); line-height: var(--lh-h3); font-weight: 600; }
+
+.flight-card__meta {
+  font-size: var(--fs-caption);
+  line-height: var(--lh-caption);
+  color: var(--color-warm-gray);
+}
+
+/* 선택되면 Amber 배경 + Ink 글자 + 체크 아이콘 (색만으로 구분하지 않는다) */
+.flight-card__input:checked + .flight-card__body { background: var(--color-amber); border-color: var(--color-amber); }
+.flight-card__input:checked + .flight-card__body .flight-card__meta { color: var(--color-ink); }
+
+.flight-card__check { visibility: hidden; }
+.flight-card__input:checked + .flight-card__body .flight-card__check { visibility: visible; }
+
+.flight-card__input:focus-visible + .flight-card__body {
+  outline: 2px solid var(--color-ink);
+  outline-offset: 2px;
+}
+
+/* 추천 출발 시각 카드 (가이드 6장): Peach 배경, 모서리 20px, 안쪽 여백 24px */
+.reco {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border-radius: var(--radius-card);
+  background: var(--color-peach);
+}
+
+.trail { color: var(--color-dusk-blue); }
+
+/* 다정한 말풍선: 모서리 20px, 한쪽만 4px */
+.bubble {
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-bubble) var(--radius-bubble) var(--radius-bubble) var(--radius-bubble-tail);
+  background: var(--color-cream);
+  color: var(--color-ink);
+}
+
+.reco__time-row { display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap; }
+.reco__time-group { display: flex; flex-direction: column; }
+
+.reco__day {
+  font-size: var(--fs-caption);
+  line-height: var(--lh-caption);
+  font-weight: 600;
+  color: var(--color-warm-gray);
+}
+
+/* 서비스에서 가장 눈에 띄는 글자 */
+.reco__time {
+  font-size: var(--fs-time);
+  line-height: var(--lh-time);
+  font-weight: 700;
+}
+
+.reco__lead { font-size: var(--fs-lead); line-height: var(--lh-lead); font-weight: 600; }
+
+/* "출발" 알약: Departure Amber 위에는 Ink 글자 */
+.pill-depart {
+  display: inline-flex;
+  align-items: center;
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-pill);
+  background: var(--color-amber);
+  color: var(--color-ink);
+  font-size: var(--fs-chip);
+  line-height: var(--lh-chip);
+  font-weight: 600;
+}
+
+/* 상태 배지: 아이콘 + 문구, 색만으로 구분하지 않는다 */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-pill);
+  font-size: var(--fs-chip);
+  line-height: var(--lh-chip);
+  font-weight: 600;
+}
+
+.badge--relaxed { background: var(--color-cream); color: var(--color-leaf); }
+.badge--soon { background: var(--color-amber); color: var(--color-ink); }
+.badge--changed { background: var(--color-cream); color: var(--color-dusk-blue); }
+.badge--stale { background: var(--color-cream); color: var(--color-sunset-deep); }
+.badge--passed { background: var(--color-sunset); color: var(--color-on-sunset); }
+
+/* 근거 칩 (높이 44px, 알약). 좁은 화면에서는 줄바꿈 */
+.chips { display: flex; flex-wrap: wrap; gap: var(--space-2); margin: 0; padding: 0; list-style: none; }
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--size-chip-h);
+  padding: 0 var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-pill);
+  background: var(--color-cream);
+  color: var(--color-ink);
+  font-size: var(--fs-chip);
+  line-height: var(--lh-chip);
+  font-weight: 600;
+}
+
+button.chip { cursor: pointer; }
+
+.text-actions { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+
+/* 여유 시간을 저장해 다시 계산됐을 때: 시각 숫자만 부드럽게 교체 (250ms) */
+.reco__time.is-updated { animation: time-swap var(--dur-base) var(--ease); }
+
+@keyframes time-swap {
+  from { opacity: 0; transform: translateY(var(--space-1)); }
+  to { opacity: 1; transform: none; }
+}
+
+/* 바텀시트 (가이드 6장): 아래에서 올라오고, 콘텐츠 영역 폭(480px) 안에 둔다 */
+body.sheet-open { overflow: hidden; }
+
+.sheet-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  background: transparent;
+  transition: background-color var(--dur-base) var(--ease);
+}
+
+.sheet-backdrop.is-open { background: var(--color-scrim); }
+
+.sheet {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  width: 100%;
+  max-width: var(--content-max);
+  max-height: 90vh;
+  max-height: 90dvh;
+  overflow-y: auto;
+  padding: var(--space-4) var(--gutter) calc(var(--space-4) + env(safe-area-inset-bottom, 0px));
+  border-radius: var(--radius-sheet) var(--radius-sheet) 0 0;
+  background: var(--color-cream);
+  box-shadow: var(--shadow-float);
+  transform: translateY(100%);
+  transition: transform var(--dur-base) var(--ease);
+}
+
+.sheet-backdrop.is-open .sheet { transform: none; }
+
+.sheet__title { font-size: var(--fs-h2); line-height: var(--lh-h2); font-weight: 700; }
+.sheet__title:focus { outline: none; }
+.sheet__body { display: flex; flex-direction: column; gap: var(--space-4); }
+
+/* 여유 시간 조절: 이름·설명 + [−] 값 [+] */
+.stepper { display: flex; flex-direction: column; gap: var(--space-2); }
+.stepper__text { display: flex; flex-direction: column; }
+.stepper__label { font-weight: 600; }
+.stepper__controls { display: flex; align-items: center; gap: var(--space-3); }
+
+.stepper__btn {
+  width: var(--size-button-h);
+  height: var(--size-button-h);
+  border: 1px solid var(--color-sunset);
+  border-radius: var(--radius-button);
+  background: transparent;
+  color: var(--color-sunset-deep);
+  font-size: var(--fs-h2);
+  line-height: 1;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform var(--dur-fast) var(--ease);
+}
+
+.stepper__btn:active:not(:disabled) { transform: scale(0.96); }
+.stepper__btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.stepper__value {
+  min-width: var(--space-8);
+  text-align: center;
+  font-size: var(--fs-h2);
+  line-height: var(--lh-h2);
+  font-weight: 700;
+}
+
+/* ───────── 모션 (가이드 9장: 기능을 설명할 때만, ease-in-out, "움직임 줄이기"가 켜져 있으면 base.css가 모두 멈춘다) ───────── */
+
+/* 단계가 바뀔 때: 화면이 옆으로 부드럽게 교체 (250ms). app.js가 방향에 맞는 클래스를 붙인다 */
+.screen-in-forward { animation: screen-in-forward var(--dur-base) var(--ease); }
+.screen-in-back { animation: screen-in-back var(--dur-base) var(--ease); }
+
+@keyframes screen-in-forward {
+  from { opacity: 0; transform: translateX(var(--space-4)); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes screen-in-back {
+  from { opacity: 0; transform: translateX(calc(-1 * var(--space-4))); }
+  to { opacity: 1; transform: none; }
+}
+
+/* 추천 출발 시각 카드가 나타날 때: 아래에서 위로 부드럽게 (250ms). 카드 안쪽만 바뀔 때는 바깥 section이 그대로라 다시 재생되지 않는다 */
+.reco { animation: card-rise var(--dur-base) var(--ease); }
+
+@keyframes card-rise {
+  from { opacity: 0; transform: translateY(var(--space-3)); }
+  to { opacity: 1; transform: none; }
+}
+
+/* 도착 정보가 바뀌어 다시 계산될 때: 시각 숫자 교체 + 항적선의 만나는 점이 새 위치로 이동 (400ms) */
+.reco__time.is-updated--large { animation-duration: var(--dur-large); }
+
+.trail.is-moving .trail__line { transform-origin: 0 16px; animation: trail-line var(--dur-large) var(--ease); }
+.trail.is-moving .trail__dot { animation: trail-dot var(--dur-large) var(--ease); }
+
+@keyframes trail-line {
+  from { transform: scaleX(0.8); }
+  to { transform: none; }
+}
+
+@keyframes trail-dot {
+  from { transform: translateX(-17.6px); }
+  to { transform: none; }
+}
+
+/* 출발할 시간이 되었을 때: "출발" 배지가 한 번만 살짝 커졌다 돌아온다 (250ms) */
+.pill-depart.is-pulse { animation: pill-pulse var(--dur-base) var(--ease) 1; }
+
+@keyframes pill-pulse {
+  50% { transform: scale(1.12); }
+}
+
+/* 칩을 누를 때: 살짝 눌리는 반응 (150ms) */
+button.chip { transition: transform var(--dur-fast) var(--ease); }
+button.chip:active { transform: scale(0.98); }
+
+/* 내용이 비어 있는 자리는 간격도 차지하지 않는다 */
+.slot:empty { display: none; }
+
+/* 카드 아래 행동 버튼 줄 */
+.actions { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+
+/* 보조 버튼: 투명 + Sunset 테두리, 글자는 Sunset Deep (가이드 6장) */
+.btn--secondary {
+  border: 1px solid var(--color-sunset);
+  background: transparent;
+  color: var(--color-sunset-deep);
+}
+
+.btn--secondary:hover:not(:disabled) { background: var(--color-peach); }
+
+/* 최신 정보를 확인하지 못했을 때의 주의 안내: Sunset Deep 글자 + 정보 아이콘 (빨강은 쓰지 않는다) */
+.stale-text { color: var(--color-sunset-deep); font-weight: 600; }
+.stale-text .icon { vertical-align: text-bottom; margin-right: var(--space-1); }
+
+/* 변경 안내 띠 (가이드 6장): Peach 배경, 왼쪽 Dusk Blue 4px 선 + 시계 아이콘, 글자 Dusk Blue */
+
+.change-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4) var(--space-3) var(--space-3);
+  border-left: 4px solid var(--color-dusk-blue);
+  border-radius: var(--radius-card);
+  background: var(--color-peach);
+  color: var(--color-dusk-blue);
+}
+
+.change-banner__body { display: flex; flex-direction: column; gap: var(--space-2); min-width: 0; }
+
+.change-banner__rows {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* 변경 전 값은 취소선, 새 값은 굵게. 화살표(→)와 문구도 함께 쓴다 */
+.change-banner__from { text-decoration: line-through; font-weight: 400; }
+.change-banner__lead { font-weight: 600; }
+.change-banner__soft { color: var(--color-dusk-blue); }
+
+/* 제목 아래 보조 안내 묶음 */
+.heading-group { display: flex; flex-direction: column; gap: var(--space-2); }
+.privacy { display: flex; align-items: flex-start; gap: var(--space-2); }
+
+/* 출발지 검색 결과 줄 (한 줄 최소 48px). 선택 규칙은 항공편 카드와 같다. */
+.place-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.place-list:empty { display: none; }
+
+.place-row { display: block; position: relative; cursor: pointer; }
+
+.place-row__input {
+  position: absolute;
+  opacity: 0;
+  width: 1px;
+  height: 1px;
+}
+
+.place-row__body {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  min-height: var(--size-button-h);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-input);
+  background: var(--color-peach);
+  color: var(--color-ink);
+  transition: background-color var(--dur-fast) var(--ease), transform var(--dur-fast) var(--ease);
+}
+
+.place-row:active .place-row__body { transform: scale(0.98); }
+
+.place-row__text { display: flex; flex-direction: column; min-width: 0; }
+.place-row__name { font-weight: 600; }
+
+.place-row__address {
+  font-size: var(--fs-caption);
+  line-height: var(--lh-caption);
+  color: var(--color-warm-gray);
+}
+
+.place-row__input:checked + .place-row__body { background: var(--color-amber); border-color: var(--color-amber); }
+.place-row__input:checked + .place-row__body .place-row__address { color: var(--color-ink); }
+
+.place-row__check { visibility: hidden; }
+.place-row__input:checked + .place-row__body .place-row__check { visibility: visible; }
+
+.place-row__input:focus-visible + .place-row__body {
+  outline: 2px solid var(--color-ink);
+  outline-offset: 2px;
+}
+
+/* 조회 결과 안내 (없음·실패) */
+.notice {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border-radius: var(--radius-card);
+  background: var(--color-peach);
+}
+
+.notice__text { font-size: var(--fs-body); line-height: var(--lh-body); }

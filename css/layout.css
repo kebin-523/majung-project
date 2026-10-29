@@ -1,0 +1,141 @@
+/* 모바일 우선. 콘텐츠 영역은 최대 480px, 4컬럼, 좌우 여백 20px을 모든 화면에서 유지한다. */
+
+.app {
+  width: 100%;
+  max-width: var(--content-max);
+  min-height: 100vh;
+  min-height: 100dvh;
+  margin: 0 auto;
+  background: var(--color-cream);
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  z-index: 1; /* 양옆 배경(.side-bg) 위에 둔다 */
+}
+
+.app__header,
+.app__main,
+.app__footer {
+  padding-left: var(--gutter);
+  padding-right: var(--gutter);
+}
+
+.app__header {
+  padding-top: var(--space-3);
+  padding-bottom: var(--space-3);
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.app__main {
+  flex: 1;
+  overflow-x: clip; /* 단계 전환 때 옆으로 미끄러지는 동안 가로 스크롤이 생기지 않게 */
+  padding-top: var(--space-4);
+  padding-bottom: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+/* 가장 중요한 버튼은 아래쪽, 콘텐츠 영역(480px) 폭 안에 고정 */
+.app__footer {
+  position: sticky;
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding-top: var(--space-3);
+  padding-bottom: calc(var(--space-3) + env(safe-area-inset-bottom, 0px));
+  background: var(--color-cream);
+}
+
+/* 767px 이하(모바일)에서는 양옆 배경을 보여 주지 않는다. 콘텐츠에 집중하고 배터리·성능 부담을 줄인다.
+   (같은 우선순위의 규칙은 뒤에 있는 것이 이기므로, 768px 이상 규칙보다 반드시 앞에 둔다.) */
+.side-bg { display: none; }
+
+/* 태블릿·데스크톱: 콘텐츠를 가운데 두고 좌우에 1px Border 선 */
+@media (min-width: 768px) {
+  .app {
+    border-left: 1px solid var(--color-border);
+    border-right: 1px solid var(--color-border);
+  }
+  /* 양옆 모션 배경: 콘텐츠 영역(480px) 양옆의 빈 공간에만 깔린다. 767px 이하에서는 아예 만들지 않는다. */
+  .side-bg {
+    display: block;
+    position: fixed; /* 콘텐츠가 스크롤되어도 배경은 고정 */
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    overflow: hidden;
+  }
+
+  .side-bg__panel {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: calc((100% - var(--content-max)) / 2);
+    height: 100%;
+    overflow: hidden;
+  }
+
+  .side-bg__panel--left { left: 0; }
+  .side-bg__panel--right { right: 0; transform: scaleX(-1); } /* 왼쪽을 뒤집어 두 길이 가운데로 모이게 */
+
+  /* 항적선: 불투명도를 낮춘 Dusk Blue 3px 선. 양옆 배경에서는 Amber·Sunset을 쓰지 않는다. */
+  .side-bg__shape { fill: var(--color-peach); }
+  .side-bg__shape--a { opacity: 0.7; }
+  .side-bg__shape--b { opacity: 0.55; }
+
+  .side-bg__line {
+    fill: none;
+    stroke: var(--color-dusk-blue);
+    stroke-opacity: 0.25;
+    stroke-width: 3px;
+    stroke-linecap: round;
+    vector-effect: non-scaling-stroke;
+  }
+
+  /* 아주 느리고 부드럽게: 한 주기 24초 이상, 움직임 폭은 작게, ease-in-out. 깜빡임·갑작스러운 이동 없음 */
+  .side-bg__shape,
+  .side-bg__line {
+    animation-timing-function: ease-in-out;
+    animation-iteration-count: infinite;
+    animation-direction: alternate;
+  }
+
+  .side-bg__shape--a { animation-name: side-shape-drift-a; animation-duration: 36s; }
+  .side-bg__shape--b { animation-name: side-shape-drift-b; animation-duration: 30s; }
+  .side-bg__line--1 { animation-name: side-drift-a; animation-duration: 24s; }
+  .side-bg__line--2 { animation-name: side-drift-b; animation-duration: 28s; }
+  .side-bg__line--3 { animation-name: side-drift-a; animation-duration: 32s; animation-delay: -8s; }
+  .side-bg__line--4 { animation-name: side-drift-b; animation-duration: 26s; animation-delay: -12s; }
+
+  /* 선: 패널 너비의 10% 안팎. 눈에 띄되 천천히 흐르는 정도 */
+  @keyframes side-drift-a {
+    from { transform: translate(0, 0); }
+    to { transform: translate(-48px, 40px); }
+  }
+
+  @keyframes side-drift-b {
+    from { transform: translate(0, 0); }
+    to { transform: translate(36px, -44px); }
+  }
+
+  /* 면: 선의 절반 폭. 면의 가장자리가 크게 흔들리면 어색해 보여서 더 작게 움직인다 */
+  @keyframes side-shape-drift-a {
+    from { transform: translate(0, 0); }
+    to { transform: translate(-24px, 20px); }
+  }
+
+  @keyframes side-shape-drift-b {
+    from { transform: translate(0, 0); }
+    to { transform: translate(18px, -22px); }
+  }
+
+  /* 움직임 줄이기: 움직임을 멈추고, 곡선이 그려진 정지된 배경으로 보여 준다 */
+  @media (prefers-reduced-motion: reduce) {
+    .side-bg__shape,
+    .side-bg__line { animation: none; }
+  }
+}

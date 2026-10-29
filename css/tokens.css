@@ -1,0 +1,73 @@
+/* 디자인 토큰 — DesignGuide.md의 값만 사용한다. 새 값은 가이드에 먼저 추가할 것. */
+:root {
+  /* 컬러 (가이드 3장) */
+  --color-cream: #FFF8F2;
+  --color-peach: #FDEBDD;
+  --color-ink: #2E1F1A;
+  --color-warm-gray: #6E5A52;
+  --color-sunset: #C94A25;          /* 버튼 배경 전용 */
+  --color-sunset-pressed: #A83B19;
+  --color-sunset-deep: #B8431F;     /* 링크·작은 강조·주의 글자 */
+  --color-amber: #F7B955;           /* 출발 신호·선택 전용, 글자 위엔 Ink */
+  --color-dusk-blue: #3D4C7A;       /* 도착 정보 변경 안내, 항적선 */
+  --color-leaf: #3F7A52;            /* Cream 위에서만 */
+  --color-border: #F0DACB;          /* 장식용 선 */
+  --color-on-sunset: #FFFFFF;
+
+  /* 타이포그래피 (가이드 4장) */
+  --font-family: 'Pretendard', 'Pretendard Variable', -apple-system, BlinkMacSystemFont, 'Malgun Gothic', sans-serif;
+  --fs-time: 56px;      --lh-time: 1.1;
+  --fs-h1: 32px;        --lh-h1: 1.3;
+  --fs-h2: 24px;        --lh-h2: 1.35;
+  --fs-h3: 20px;        --lh-h3: 1.4;
+  --fs-lead: 20px;      --lh-lead: 1.4;   /* 핵심 안내 문장 */
+  --fs-flight-input: 24px; --lh-flight-input: 1.3;
+  --fs-body: 16px;      --lh-body: 1.6;
+  --fs-chip: 14px;      --lh-chip: 1.4;
+  --fs-caption: 14px;   --lh-caption: 1.5;
+  --fs-button: 16px;    --lh-button: 1;
+
+  /* 간격 (가이드 5장, 8의 배수) */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 16px;
+  --space-4: 24px;
+  --space-5: 32px;
+  --space-6: 48px;
+  --space-7: 56px;
+  --space-8: 64px;
+  --space-9: 96px;
+
+  /* 레이아웃 */
+  --content-max: 480px;   /* (가정) */
+  --gutter: 20px;
+  --bp-wide: 768px;       /* 미디어쿼리에는 직접 768px 사용 (CSS 변수 불가) */
+
+  /* 모서리 */
+  --radius-button: 12px;
+  --radius-input: 12px;
+  --radius-card: 20px;
+  --radius-pill: 999px;
+  --radius-sheet: 20px;
+  --radius-bubble: 20px;
+  --radius-bubble-tail: 4px;
+
+  /* 크기 */
+  --size-button-h: 48px;
+  --size-input-h: 56px;
+  --size-chip-h: 44px;
+  --size-touch-min: 44px;
+  --line-trail: 3px;       /* 항적선 두께 */
+
+  /* 바텀시트 뒤 막: Ink 40% (가정, DesignGuide 6장) */
+  --color-scrim: rgba(46, 31, 26, 0.4);
+
+  /* 그림자 (떠 있어야 할 때만) */
+  --shadow-float: 0 4px 16px rgba(46, 31, 26, 0.08);
+
+  /* 모션 (가이드 9장) */
+  --dur-fast: 150ms;
+  --dur-base: 250ms;
+  --dur-large: 400ms;
+  --ease: ease-in-out;
+}

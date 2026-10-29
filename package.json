@@ -1,0 +1,11 @@
+{
+  "name": "majung",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "공항 마중 출발 시간 안내 — 모바일 웹 목업",
+  "scripts": {
+    "start": "python -m http.server 5173",
+    "test": "node --test"
+  }
+}

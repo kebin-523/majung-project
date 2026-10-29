@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>마중 — 공항 마중 출발 시각</title>
+  <meta name="description" content="항공편 도착 정보와 이동 시간을 바탕으로 추천 출발 시각을 알려드려요.">
+  <link rel="icon" href="assets/icons/trail-mark.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="css/tokens.css">
+  <link rel="stylesheet" href="css/base.css">
+  <link rel="stylesheet" href="css/layout.css">
+  <link rel="stylesheet" href="css/components.css">
+</head>
+<body>
+  <!--
+    양옆 모션 배경 (768px 이상에서만 보인다). 장식일 뿐이라 글자·버튼·정보를 두지 않고, 화면 읽기 프로그램에서는 숨긴다.
+    색은 Cream·Peach·Dusk Blue(선)만 쓴다. 움직임은 css/layout.css에서 정의하고, "움직임 줄이기"가 켜져 있으면 멈춘다.
+  -->
+  <div class="side-bg" aria-hidden="true">
+    <svg class="side-bg__panel side-bg__panel--left" viewBox="0 0 400 800" preserveAspectRatio="xMaxYMid slice" focusable="false">
+      <path class="side-bg__shape side-bg__shape--a" d="M0 0H330C370 180 280 340 330 500C360 620 300 720 340 800H0Z"/>
+      <path class="side-bg__shape side-bg__shape--b" d="M0 120H210C250 260 190 380 230 520C250 600 210 700 240 800H0Z"/>
+      <path class="side-bg__line side-bg__line--1" d="M-20 120C140 120 270 380 392 400"/>
+      <path class="side-bg__line side-bg__line--2" d="M-20 300C160 300 280 400 392 400"/>
+      <path class="side-bg__line side-bg__line--3" d="M-20 520C160 520 280 420 392 400"/>
+      <path class="side-bg__line side-bg__line--4" d="M-20 700C140 700 270 430 392 400"/>
+    </svg>
+    <svg class="side-bg__panel side-bg__panel--right" viewBox="0 0 400 800" preserveAspectRatio="xMaxYMid slice" focusable="false">
+      <path class="side-bg__shape side-bg__shape--a" d="M0 0H330C370 180 280 340 330 500C360 620 300 720 340 800H0Z"/>
+      <path class="side-bg__shape side-bg__shape--b" d="M0 120H210C250 260 190 380 230 520C250 600 210 700 240 800H0Z"/>
+      <path class="side-bg__line side-bg__line--1" d="M-20 120C140 120 270 380 392 400"/>
+      <path class="side-bg__line side-bg__line--2" d="M-20 300C160 300 280 400 392 400"/>
+      <path class="side-bg__line side-bg__line--3" d="M-20 520C160 520 280 420 392 400"/>
+      <path class="side-bg__line side-bg__line--4" d="M-20 700C140 700 270 430 392 400"/>
+    </svg>
+  </div>
+
+  <div class="app">
+    <header class="app__header">
+      <img src="assets/icons/trail-mark.svg" width="32" height="32" alt="">
+      <strong>마중</strong>
+      <span class="caption">majung</span>
+      <!-- 목업 데이터 표시: js/app.js가 시나리오 이름을 채운다. 실제 API 연결 후 제거한다. -->
+      <span class="mock-badge"></span>
+    </header>
+
+    <!-- 화면 내용은 js/app.js가 단계에 맞게 채운다. -->
+    <main class="app__main"></main>
+
+    <footer class="app__footer"></footer>
+  </div>
+
+  <noscript>이 서비스는 JavaScript가 필요해요. 브라우저 설정에서 JavaScript를 켜 주세요.</noscript>
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
