@@ -2,3 +2,8 @@
 node_modules/
 .DS_Store
 .claude/settings.local.json
+docs/samples/
+# 임시: 저장소 공개 여부를 정할 때까지 fixture는 커밋하지 않는다
+tests/fixtures/
+# 임시: docs/ 가이드 파일도 저장소 공개 여부를 정할 때까지 커밋하지 않는다
+docs/
