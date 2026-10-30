@@ -62,3 +62,27 @@ export function flightNoticeKind({ status, landed } = {}) {
   if (status === 'unknown') return 'unknown';
   return null;
 }
+
+/**
+ * 항공편의 최신 상태에 맞는 화면을 결정한다. 재확인 결과가 올 때마다 이 함수로 다시 정하므로, 상태가 되돌아와도 최신 상태를 따라간다. (DOM 접근 없음)
+ *  - screen 'card'    추천 카드. 착륙(touchdown)이면 touchdown 이 true 이고 말풍선만 바뀐다.
+ *  - screen 'arrived' 도착 안내 상자. 추천 시각을 계산·표시하지 않는다.
+ *  - screen 'unknown' 운항 상태 확인 필요 안내 상자. 추천 시각을 계산·표시하지 않는다.
+ * @param {{ status?: string, landed?: boolean }} flight
+ * @returns {{ screen: 'card'|'arrived'|'unknown', touchdown: boolean }}
+ */
+export function resolveFlightView(flight) {
+  const notice = flightNoticeKind(flight);
+  if (notice) return { screen: notice, touchdown: false };
+  return { screen: 'card', touchdown: flight?.status === 'touchdown' };
+}
+
+/**
+ * "오래됨"과 자동 재확인을 판단하는 기준 시각: 화면이 항공편 응답을 받은 시각(receivedAt)이다.
+ * 서버가 인천공항 API 를 부른 시각(fetchedAt)은 서버 시계라서 기기 시계와 어긋날 수 있으므로 "N:NN에 확인했어요" 표시에만 쓴다.
+ * receivedAt 이 없는 예전 저장값만 fetchedAt 으로 대신한다.
+ * @param {{ receivedAt?: number|null, fetchedAt?: number|null }} flight
+ */
+export function lastConfirmedAt(flight) {
+  return flight?.receivedAt ?? flight?.fetchedAt ?? null;
+}

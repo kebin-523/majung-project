@@ -3,8 +3,10 @@
 // - "여유" 칩을 누르면 바텀시트로 여유 시간을 고친다.
 // - 화면을 열면 최신 항공편 정보를 다시 확인하고, 도착 시각이 바뀌었으면 이동 시간을 다시 조회해 재계산한 뒤
 //   변경 안내 띠로 이전 → 새 값을 보여 준다. 같은 변경은 한 번만 안내한다.
-// - 화면을 연 채 마지막 확인이 STALE_AFTER_MIN(10분)을 넘기면 자동으로 한 번 다시 확인한다.
-//   확인하는 동안 "확인 중이에요"를 보여 주고, 실패하면 반복하지 않고 "다시 시도"로 넘긴다.
+// - 화면을 연 채 응답을 받은 지 STALE_AFTER_MIN(10분)이 지나면 자동으로 한 번 다시 확인한다. (기준은 기기 시계로 잰 경과 시간이다. 서버가 적은 확인 시각은 "N:NN에 확인했어요" 표시에만 쓴다)
+//   확인하는 동안 "확인 중이에요"를 보여 주고, 실패하면 반복하지 않고 "다시 시도"로 넘긴다. (domain/autoRecheck.js)
+// - 재확인 결과가 올 때마다 항공편의 최신 상태로 화면(추천 카드 · 안내 상자 · 말풍선)을 다시 정한다. (domain/status.js 의 resolveFlightView)
+//   도착(arrived)은 더 바뀌지 않는다고 보고 다시 확인하지 않는다. 운항 상태 확인 필요(unknown)는 계속 확인해 상태가 되돌아오면 따라간다.
 // - 상태 화면: 확인 중 / 최신 확인 못함(오래됨, 추천 시각과 마지막 확인 시각은 계속 보인다) /
 //   추천 출발 시각 지남(이동 시간 다시 확인) / 이미 도착한 항공편 · 운항 상태 확인 필요(안내 상자, 추천 시각 계산 안 함) / 이동 시간 못 불러옴.
 // - 착륙한 항공편은 추천 카드를 유지하고 말풍선만 바꾼다. (근거 칩의 비행기 도착 시각은 그대로 보여 준다)
@@ -15,7 +17,8 @@ import { DEFAULT_AIRPORT_BUFFER_MIN, DEFAULT_MEETUP_MIN, STATUS_RECHECK_INTERVAL
 import { isScenarioMode } from '../../clock.js';
 import { detectArrivalChange, isRealTravelRecheck, shouldAnnounce, summarizeChange } from '../../domain/change.js';
 import { latestArrival, recommendDeparture } from '../../domain/recommend.js';
-import { flightNoticeKind, isStale, resolveBadge, shouldAutoRecheck } from '../../domain/status.js';
+import { createAutoRecheck } from '../../domain/autoRecheck.js';
+import { isStale, lastConfirmedAt, resolveBadge, resolveFlightView } from '../../domain/status.js';
 import {
   dayLabel, formatClock, formatClockWithDay, formatSpoken, formatSpokenWithDay, isSameDayKst,
 } from '../../domain/time.js';
@@ -59,9 +62,9 @@ export function buildResultViewModel({ flight, drive, buffers, now, hasChange = 
   const badgeKey = resolveBadge({
     now,
     departure: departureMs,
-    lastChecked: flight.fetchedAt,
+    lastChecked: lastConfirmedAt(flight),
     hasUnseenChange: hasChange, // status.js의 이름은 "unseen"이지만, 여기서는 "변경이 있었음"을 배지로 남기는 데 쓴다.
-    landed: flight.landed,
+    // landed 는 넘기지 않는다. 도착한 편은 이 함수를 부르기 전에 안내 상자로 가므로, 'landed' 배지가 카드에 들어가 renderBadge 가 던지는 일이 없다.
   });
 
   // 추천 시각이 도착 날짜와 다른 날이거나 오늘이 아니면(자정 전후) 날짜 라벨을 함께 보여 준다.
@@ -74,13 +77,14 @@ export function buildResultViewModel({ flight, drive, buffers, now, hasChange = 
     timeText: formatClock(departureMs),
     timeSpoken: formatSpoken(departureMs),
     // 추천 시각이 지났다면 "지남" 안내가 먼저다. 그 밖에 착륙한 편은 말풍선만 바꾼다.
-    bubbleText: badgeKey === 'passed' ? BUBBLES.passed : flight.status === 'touchdown' ? BUBBLES.touchdown : BUBBLES.default,
+    bubbleText: badgeKey === 'passed' ? BUBBLES.passed : resolveFlightView(flight).touchdown ? BUBBLES.touchdown : BUBBLES.default,
     arrivalText: formatClockWithDay(arrival, now),
     arrivalSpoken: formatSpokenWithDay(arrival, now),
     travelMin: drive.minutes,
     bufferTotalMin: buffers.airportBufferMin + buffers.meetupMin,
     checking,
-    stale: isStale({ now, lastChecked: flight.fetchedAt }),
+    stale: isStale({ now, lastChecked: lastConfirmedAt(flight) }),
+    // 서버가 인천공항 API 를 부른 시각. 표시에만 쓰고 오래됨 판단에는 쓰지 않는다.
     checkedText: formatClock(flight.fetchedAt),
     checkedSpoken: formatSpoken(flight.fetchedAt),
   };
@@ -117,16 +121,19 @@ export function renderResult({ main }, ctx) {
   };
 
   // 도착·운항 상태를 알 수 없는 편은 추천 카드 대신 안내 상자를 보여 준다. (추천 시각을 계산하지 않는다)
-  const noticeKind = flightNoticeKind(flight);
-  const canShowCard = noticeKind === null && Number.isFinite(drive?.minutes);
-  let checking = canShowCard; // 열자마자 최신 정보를 확인한다. 확인하는 동안 이전 값을 최신처럼 보이게 하지 않는다.
+  // 재확인 결과가 올 때마다 바뀔 수 있으므로 항상 flight 의 최신 값으로 다시 정한다.
+  const screenOf = () => resolveFlightView(flight).screen;
+  const showsCard = () => screenOf() === 'card' && Number.isFinite(drive?.minutes);
+  // 항공편을 다시 확인하는 화면인가. 도착(arrived)은 더 바뀌지 않는다고 보고 확인하지 않고, 이동 시간이 없어 카드를 못 그리는 경우도 확인하지 않는다.
+  const polls = () => screenOf() === 'unknown' || showsCard();
+  // 열자마자 최신 정보를 확인한다. 확인하는 동안 이전 값을 최신처럼 보이게 하지 않는다.
+  let checking = polls();
   let travelBusy = false;
   let pulsed = false; // "출발" 배지 모션은 이 화면에서 한 번만
   let lastVm = null;
   let renderedBadgeKey = null; // 화면에 실제로 그려진 배지. (lastVm은 확인 시각 줄만 바꿀 때도 갱신되어 비교 기준으로 쓸 수 없다)
-  // 이번 "오래됨" 구간에서 자동 확인을 이미 했는가. 화면을 열 때의 확인도 자동 시도 1회로 센다.
-  // 확인에 성공하면 false로 되돌려, 다시 오래되었을 때 한 번 더 자동으로 확인할 수 있게 한다. 실패하면 true로 남아 반복하지 않는다.
-  let autoTried = canShowCard;
+  // 자동 재확인 상태: 화면을 열 때의 확인도 자동 시도 1회로 세고, 성공하면 되돌리고, 실패하면 반복하지 않는다. (domain/autoRecheck.js)
+  const autoRecheck = createAutoRecheck();
 
   main.innerHTML = `
     <h1 class="sr-only" tabindex="-1">추천 출발 시각</h1>
@@ -135,10 +142,12 @@ export function renderResult({ main }, ctx) {
     <div id="notice-host" class="slot" aria-live="polite"></div>
     <div id="actions-host" class="slot actions"></div>
     <div class="text-actions">
-      ${noticeKind ? '' : '<button id="change-flight-btn" class="btn btn--text" type="button">항공편 바꾸기</button>'}
+      <button id="change-flight-btn" class="btn btn--text" type="button">항공편 바꾸기</button>
       <button id="back-btn" class="btn btn--text" type="button">이전</button>
     </div>`;
 
+  const textActions = main.querySelector('.text-actions');
+  const changeBtn = main.querySelector('#change-flight-btn');
   const bannerHost = main.querySelector('#banner-host');
   const host = main.querySelector('#card-host');
   const noticeHost = main.querySelector('#notice-host');
@@ -163,7 +172,7 @@ export function renderResult({ main }, ctx) {
   /** 카드 아래 행동 버튼: 최신 확인 못함 → "다시 시도", 출발 시각 지남 → "이동 시간 다시 확인" */
   function drawActions() {
     const items = [];
-    if (canShowCard && lastVm && !checking) {
+    if (showsCard() && lastVm && !checking) {
       if (lastVm.stale) items.push('<button class="btn btn--text" type="button" data-action="retry-refresh">다시 시도</button>');
       if (lastVm.badgeKey === 'passed') {
         items.push(`<button class="btn btn--secondary" type="button" data-action="recheck-travel"${travelBusy ? ' disabled' : ''}>이동 시간 다시 확인</button>`);
@@ -178,8 +187,23 @@ export function renderResult({ main }, ctx) {
    *   buffer = 여유 시간을 저장해 다시 계산(숫자만 250ms), change = 도착 정보가 바뀌어 다시 계산(숫자 + 항적선 400ms)
    */
   function drawCard({ animate = null } = {}) {
-    if (noticeKind) {
-      host.innerHTML = flightNoticeHtml(noticeKind, flight);
+    const screen = screenOf();
+
+    // 안내 상자 안에 "항공편 바꾸기"가 있으므로, 상자를 보일 때는 아래쪽의 같은 버튼을 뺀다. (카드로 돌아오면 다시 넣는다)
+    if (screen === 'card') {
+      if (!changeBtn.isConnected) textActions.prepend(changeBtn);
+    } else {
+      changeBtn.remove();
+    }
+
+    if (screen !== 'card') {
+      // 추천 시각을 계산하지도 보여 주지도 않는다. 카드 시절의 띠·안내·행동 버튼도 함께 치운다.
+      bannerHost.innerHTML = '';
+      noticeHost.innerHTML = '';
+      lastVm = null;
+      renderedBadgeKey = null;
+      host.innerHTML = flightNoticeHtml(screen, flight);
+      drawActions();
       return;
     }
     if (!Number.isFinite(drive?.minutes)) {
@@ -254,9 +278,11 @@ export function renderResult({ main }, ctx) {
     if (!host.isConnected) return; // 기다리는 사이 다른 화면으로 이동했다.
 
     let newChange = false;
+    const before = resolveFlightView(flight);
     if (latest.ok) {
       const next = latest.data;
-      const detected = detectArrivalChange(flight, next);
+      // 안내 상자로 바뀌는 편(도착 · 운항 상태 확인 필요)에는 추천 시각을 보여 주지 않으므로 변경 안내도 만들지 않는다.
+      const detected = resolveFlightView(next).screen === 'card' ? detectArrivalChange(flight, next) : null;
 
       let nextDrive = null;
       if (shouldAnnounce(detected, lastAnnouncedChangeId)) {
@@ -282,15 +308,23 @@ export function renderResult({ main }, ctx) {
 
       flight = next;
       if (nextDrive) drive = nextDrive;
-      autoTried = false; // 확인에 성공했으니, 다시 오래되면 자동 확인을 한 번 더 할 수 있다.
+      autoRecheck.succeeded(); // 확인에 성공했으니, 다시 오래되면 자동 확인을 한 번 더 할 수 있다.
       persistLatest();
     }
-    // 확인에 실패하면 flight(마지막으로 확인한 값과 시각)를 그대로 둔다. 오래된 값을 최신처럼 바꾸지 않는다.
+    // 확인에 실패하면 flight(마지막으로 확인한 값과 응답을 받은 시각)를 그대로 둔다. 오래된 값을 최신처럼 바꾸지 않는다.
 
     refreshing = false;
     checking = false;
+
+    // 최신 상태에 맞는 화면을 다시 정한다. (카드 ↔ 안내 상자, 착륙 말풍선)
+    const after = resolveFlightView(flight);
+    const viewChanged = before.screen !== after.screen || before.touchdown !== after.touchdown;
+    if (after.screen !== 'card') {
+      if (viewChanged) drawCard();
+      return;
+    }
     const vm = makeVm();
-    if (newChange || vm.badgeKey !== renderedBadgeKey || vm.timeText !== lastVm.timeText) {
+    if (viewChanged || newChange || vm.badgeKey !== renderedBadgeKey || vm.timeText !== lastVm.timeText) {
       drawCard({ animate: newChange ? 'change' : null });
     } else {
       updateCheckedLine();
@@ -337,31 +371,35 @@ export function renderResult({ main }, ctx) {
   });
 
   drawCard();
-  if (canShowCard) refresh();
+  if (polls()) refresh();
 
   // 화면을 열어 둔 동안 시간이 흐른 것(곧 출발·지남·오래됨)을 배지에 반영한다.
-  // 마지막 확인이 오래되면 항공편을 자동으로 한 번 다시 확인한다. (실패하면 반복하지 않고 "다시 시도"로 넘긴다)
-  if (canShowCard) {
-    const timer = setInterval(() => {
-      if (!host.isConnected) {
-        clearInterval(timer); // 다른 화면으로 이동했다.
-        return;
-      }
-      if (checking || refreshing || travelBusy) return;
+  // 응답을 받은 지 오래되면 항공편을 자동으로 한 번 다시 확인한다. (실패하면 반복하지 않고 "다시 시도"로 넘긴다)
+  const timer = setInterval(() => {
+    if (!host.isConnected) {
+      clearInterval(timer); // 다른 화면으로 이동했다.
+      return;
+    }
+    const screen = screenOf();
+    if (screen === 'arrived') {
+      clearInterval(timer); // 도착한 편은 더 확인하지 않는다. (호출 한도)
+      return;
+    }
+    if (!polls() || checking || refreshing || travelBusy) return;
 
-      if (shouldAutoRecheck({ now: ctx.now(), lastChecked: flight.fetchedAt, alreadyTried: autoTried })) {
-        autoTried = true;
-        retryRefresh();
-        return;
-      }
+    if (autoRecheck.due({ now: ctx.now(), receivedAt: lastConfirmedAt(flight) })) {
+      autoRecheck.started();
+      retryRefresh();
+      return;
+    }
 
-      const vm = makeVm();
-      if (vm.badgeKey !== renderedBadgeKey) drawCard();
-      else if (vm.stale !== lastVm.stale) updateCheckedLine();
-    }, STATUS_RECHECK_INTERVAL_MS);
-  }
+    if (screen !== 'card') return;
+    const vm = makeVm();
+    if (vm.badgeKey !== renderedBadgeKey) drawCard();
+    else if (vm.stale !== lastVm.stale) updateCheckedLine();
+  }, STATUS_RECHECK_INTERVAL_MS);
 
-  main.querySelector('#change-flight-btn')?.addEventListener('click', () => ctx.navigate('flight'));
+  changeBtn.addEventListener('click', () => ctx.navigate('flight'));
   host.addEventListener('click', (event) => {
     if (event.target.closest('[data-action="change-flight"]')) ctx.navigate('flight');
   });

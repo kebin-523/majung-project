@@ -10,7 +10,9 @@
 //   화면이 쓰는 값: flightId, flightNo, arrivalDate, scheduled, changed, landed, status, departureCity?, airline?, fetchedAt, source
 //   scheduled·changed·fetchedAt 은 epoch ms. changed 는 변경 도착 시각이 없으면 null.
 //   arrivalDate 는 요청한 날짜와 다른 행도 걸러 내지 않고 그대로 담는다.
-//   fetchedAt 은 실제 모드에서 서버가 인천공항 API 를 부른 시각이다. (화면이 그대로 쓴다)
+//   fetchedAt 은 실제 모드에서 서버가 인천공항 API 를 부른 시각이다. (화면이 "N:NN에 확인했어요" 표시에만 쓴다)
+//   receivedAt 은 화면이 응답을 받은 시각(기기 시계, epoch ms)이다. 오래됨 판단과 자동 재확인은 이 값에서 잰 경과 시간으로 한다.
+//     (서버 시계와 기기 시계가 어긋나도 영향받지 않게 하려는 것이다. 응답이 CDN 캐시에서 나왔다면 데이터는 receivedAt 보다 최대 5분 앞선 것일 수 있다)
 //
 // landed (임시 결정): status 가 'arrived'(도착)일 때만 true 이고, 'touchdown'(착륙)은 false 다.
 //   DesignGuide 에서 "도착"은 추천 카드 대신 안내 상자, "착륙"은 추천 카드 유지로 정했다. README 에도 임시 결정으로 적어 두었다.
@@ -27,10 +29,13 @@ export const CLIENT_TIMEOUT_MS = 15000; // 서버가 공공 API 를 기다리는
 // ---------- 목업 (시나리오 모드) ----------
 
 const MOCK_STATUS = { landed: 'arrived', touchdown: 'touchdown', unknown: 'unknown' };
+// 화면을 열어 둔 사이 바뀌는 시나리오: 두 번째 재확인부터 이 상태가 된다. (검색과 첫 재확인은 상태 없음)
+const LATER_STATUS = { 'later-touchdown': 'touchdown', 'later-arrived': 'arrived', 'later-unknown': 'unknown' };
+const refreshCalls = new Map();
 
-function toMockFlight(raw, { scenario, showChange }) {
+function toMockFlight(raw, { scenario, showChange, status: later }) {
   const now = clockNow();
-  const status = MOCK_STATUS[scenario] ?? 'none';
+  const status = later ?? MOCK_STATUS[scenario] ?? 'none';
   return {
     flightId: raw.flightId,
     flightNo: raw.flightNo,
@@ -43,6 +48,7 @@ function toMockFlight(raw, { scenario, showChange }) {
     airline: raw.airline ?? null,
     // stale: 마지막으로 확인한 시각이 이미 오래된 상태로 돌려준다.
     fetchedAt: scenario === 'stale' ? now - minutes(STALE_AFTER_MIN + 5) : now,
+    receivedAt: scenario === 'stale' ? now - minutes(STALE_AFTER_MIN + 5) : now,
     source: 'mock',
   };
 }
@@ -71,7 +77,11 @@ async function mockRefresh(flightId) {
   const raw = findFlight(flightId);
   if (!raw) return { ok: false, reason: 'notfound' };
 
-  return { ok: true, data: toMockFlight(raw, { scenario, showChange: scenario === 'changed' }) };
+  const calls = (refreshCalls.get(scenario) ?? 0) + 1;
+  refreshCalls.set(scenario, calls);
+  const status = calls >= 2 ? LATER_STATUS[scenario] : undefined;
+
+  return { ok: true, data: toMockFlight(raw, { scenario, showChange: scenario === 'changed', status }) };
 }
 
 // ---------- 실제 (서버 함수) ----------
@@ -86,6 +96,7 @@ function mapReason(reason) {
 function fromServer(flight) {
   return {
     ...flight,
+    receivedAt: clockNow(),
     landed: flight.status === 'arrived',
     departureCity: flight.origin ?? null,
     airline: flight.airline ?? null,

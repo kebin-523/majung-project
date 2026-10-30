@@ -19,7 +19,8 @@ export const ADDRESS_ROUTE_IS_MOCK = true;
 
 // 상태 판단 기준 (가정, 갱신 주기 확정 후 조정)
 export const SOON_THRESHOLD_MIN = 60; // 추천 출발 60분 전부터 "곧 출발"
-// 마지막 확인 후 10분이 지나면 "오래됨". 화면을 연 채 이 시간이 지나면 자동으로 한 번 다시 확인하는 간격으로도 쓴다.
+// 화면이 항공편 응답을 받은 지 10분이 지나면 "오래됨". (기기 시계로 잰 경과 시간이다. domain/status.js 의 lastConfirmedAt)
+// 화면을 연 채 이 시간이 지나면 자동으로 한 번 다시 확인하는 간격으로도 쓴다.
 // 자동 확인은 항공편 조회 API를 호출하므로 호출 한도를 확인한 뒤 조정한다.
 export const STALE_AFTER_MIN = 10;
 
