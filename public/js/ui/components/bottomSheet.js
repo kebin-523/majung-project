@@ -41,6 +41,10 @@ export function openBottomSheet({ title, bodyHtml, saveLabel = '저장', onMount
   const sheet = backdrop.querySelector('.sheet');
   const titleEl = sheet.querySelector('#sheet-title');
   let closing = false;
+  let resolveClosed;
+  const closed = new Promise((resolve) => {
+    resolveClosed = resolve;
+  });
 
   function onKeydown(event) {
     if (event.key === 'Escape') {
@@ -76,6 +80,7 @@ export function openBottomSheet({ title, bodyHtml, saveLabel = '저장', onMount
       document.body.classList.remove('sheet-open');
       current = null;
       getReturnFocus?.()?.focus();
+      resolveClosed();
     };
     if (prefersReducedMotion()) finish();
     else setTimeout(finish, CLOSE_MS);
@@ -101,8 +106,20 @@ export function openBottomSheet({ title, bodyHtml, saveLabel = '저장', onMount
     titleEl.focus();
   });
 
-  current = { close, element: sheet };
+  current = { close, element: sheet, closed };
   return current;
+}
+
+/**
+ * 열려 있는 시트를 저장하지 않고 닫는다. (바깥을 누른 것과 같은 동작)
+ * 시트가 완전히 닫히고(포커스 복귀까지) 나면 true 로 끝나는 약속을 돌려준다. 열려 있지 않으면 바로 false 로 끝난다.
+ * 시트가 열려 있는 동안 .app 은 inert 라서, 닫힌 뒤에야 화면 안 요소로 포커스를 옮길 수 있다.
+ */
+export function closeCurrentSheet() {
+  if (!current) return Promise.resolve(false);
+  const { close, closed } = current;
+  close();
+  return closed.then(() => true);
 }
 
 /* ───────────────────── ② 여유 시간 정하기 (내용) ───────────────────── */

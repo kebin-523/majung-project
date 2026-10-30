@@ -7,6 +7,8 @@
 //   확인하는 동안 "확인 중이에요"를 보여 주고, 실패하면 반복하지 않고 "다시 시도"로 넘긴다. (domain/autoRecheck.js)
 // - 재확인 결과가 올 때마다 항공편의 최신 상태로 화면(추천 카드 · 안내 상자 · 말풍선)을 다시 정한다. (domain/status.js 의 resolveFlightView)
 //   도착(arrived)은 더 바뀌지 않는다고 보고 다시 확인하지 않는다. 운항 상태 확인 필요(unknown)는 계속 확인해 상태가 되돌아오면 따라간다.
+// - 화면이 이미 보인 뒤 카드 ↔ 안내 상자로 바뀌면 보이지 않는 알림 영역(#flight-announcer)으로 한 번 알린다. 처음 그릴 때는 알리지 않는다. (domain/announce.js)
+//   포커스는 사라진 요소에 있었을 때만 "항공편 바꾸기" 버튼으로 돌려주고, 열려 있던 여유 시간 시트는 저장하지 않고 닫는다.
 // - 상태 화면: 확인 중 / 최신 확인 못함(오래됨, 추천 시각과 마지막 확인 시각은 계속 보인다) /
 //   추천 출발 시각 지남(이동 시간 다시 확인) / 이미 도착한 항공편 · 운항 상태 확인 필요(안내 상자, 추천 시각 계산 안 함) / 이동 시간 못 불러옴.
 // - 착륙한 항공편은 추천 카드를 유지하고 말풍선만 바꾼다. (근거 칩의 비행기 도착 시각은 그대로 보여 준다)
@@ -17,13 +19,14 @@ import { DEFAULT_AIRPORT_BUFFER_MIN, DEFAULT_MEETUP_MIN, STATUS_RECHECK_INTERVAL
 import { isScenarioMode } from '../../clock.js';
 import { detectArrivalChange, isRealTravelRecheck, shouldAnnounce, summarizeChange } from '../../domain/change.js';
 import { latestArrival, recommendDeparture } from '../../domain/recommend.js';
+import { announcementFor, cardLeadSpoken, focusTargetAfterTransition } from '../../domain/announce.js';
 import { createAutoRecheck } from '../../domain/autoRecheck.js';
 import { isStale, lastConfirmedAt, resolveBadge, resolveFlightView } from '../../domain/status.js';
 import {
   dayLabel, formatClock, formatClockWithDay, formatSpoken, formatSpokenWithDay, isSameDayKst,
 } from '../../domain/time.js';
 import { load, save } from '../../store.js';
-import { openBufferSheet } from '../components/bottomSheet.js';
+import { closeCurrentSheet, openBufferSheet } from '../components/bottomSheet.js';
 import { renderChangeBanner } from '../components/changeBanner.js';
 import { renderChips } from '../components/chips.js';
 import { renderCheckedLine, renderRecommendCardContent } from '../components/recommendCard.js';
@@ -137,6 +140,7 @@ export function renderResult({ main }, ctx) {
 
   main.innerHTML = `
     <h1 class="sr-only" tabindex="-1">추천 출발 시각</h1>
+    <div id="flight-announcer" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></div>
     <div id="banner-host" class="slot" aria-live="polite"></div>
     <div id="card-host"></div>
     <div id="notice-host" class="slot" aria-live="polite"></div>
@@ -148,6 +152,7 @@ export function renderResult({ main }, ctx) {
 
   const textActions = main.querySelector('.text-actions');
   const changeBtn = main.querySelector('#change-flight-btn');
+  const announcer = main.querySelector('#flight-announcer');
   const bannerHost = main.querySelector('#banner-host');
   const host = main.querySelector('#card-host');
   const noticeHost = main.querySelector('#notice-host');
@@ -238,6 +243,21 @@ export function renderResult({ main }, ctx) {
     drawActions();
   }
 
+  /** 화면 읽기 프로그램에 한 번 알린다. 같은 문장이 이어져도 읽히도록 먼저 비운 뒤 채운다. */
+  function announce(text) {
+    announcer.textContent = '';
+    setTimeout(() => {
+      if (announcer.isConnected) announcer.textContent = text;
+    }, 50);
+  }
+
+  /** 포커스가 카드 · 행동 버튼 · 아래쪽 "항공편 바꾸기"(곧 사라질 요소) 안에 있는가. (전환하기 전에 부른다) */
+  function focusIsInRemovable() {
+    const active = document.activeElement;
+    if (!active || active === document.body) return false;
+    return host.contains(active) || actionsHost.contains(active) || noticeHost.contains(active) || active === changeBtn;
+  }
+
   /** 확인 시각 줄만 바꾼다. (카드 전체를 다시 읽어 주지 않도록) */
   function updateCheckedLine() {
     const line = host.querySelector('.reco__checked');
@@ -318,18 +338,37 @@ export function renderResult({ main }, ctx) {
 
     // 최신 상태에 맞는 화면을 다시 정한다. (카드 ↔ 안내 상자, 착륙 말풍선)
     const after = resolveFlightView(flight);
-    const viewChanged = before.screen !== after.screen || before.touchdown !== after.touchdown;
+    const screenChanged = before.screen !== after.screen;
+    const viewChanged = screenChanged || before.touchdown !== after.touchdown;
+
+    // 카드 ↔ 안내 상자로 바뀌면: 포커스가 사라질 요소에 있었는지 먼저 보고, 열려 있는 여유 시간 시트는 저장하지 않고 닫는다.
+    let focusInRemoved = false;
+    if (screenChanged) {
+      focusInRemoved = focusIsInRemovable();
+      const sheetWasOpen = await closeCurrentSheet();
+      if (!host.isConnected) return;
+      focusInRemoved = focusInRemoved || sheetWasOpen;
+    }
+
     if (after.screen !== 'card') {
       if (viewChanged) drawCard();
-      return;
-    }
-    const vm = makeVm();
-    if (viewChanged || newChange || vm.badgeKey !== renderedBadgeKey || vm.timeText !== lastVm.timeText) {
-      drawCard({ animate: newChange ? 'change' : null });
     } else {
-      updateCheckedLine();
+      const vm = makeVm();
+      if (viewChanged || newChange || vm.badgeKey !== renderedBadgeKey || vm.timeText !== lastVm.timeText) {
+        drawCard({ animate: newChange ? 'change' : null });
+      } else {
+        updateCheckedLine();
+      }
+      if (newChange) showBanner();
     }
-    if (newChange) showBanner();
+
+    if (screenChanged) {
+      const text = announcementFor(before, after, { cardLead: lastVm ? cardLeadSpoken(lastVm) : null });
+      if (text) announce(text);
+      if (focusTargetAfterTransition({ before, after, focusInRemoved }) === 'change-flight') {
+        (after.screen === 'card' ? changeBtn : host.querySelector('[data-action="change-flight"]'))?.focus();
+      }
+    }
   }
 
   /** 추천 출발 시각이 지났을 때: 이동 시간만 다시 조회해 다시 계산한다. */
