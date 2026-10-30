@@ -1,8 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { changeId, detectArrivalChange, shouldAnnounce, summarizeChange } from '../js/domain/change.js';
-import { minutes } from '../js/domain/time.js';
-import { toMs } from '../js/domain/time.js';
+import { changeId, detectArrivalChange, shouldAnnounce, summarizeChange } from '../public/js/domain/change.js';
+import { minutes } from '../public/js/domain/time.js';
+import { toMs } from '../public/js/domain/time.js';
 
 const flight = (extra) => ({ flightId: 'KE123@2026-10-29', scheduled: '2026-10-29 17:30', ...extra });
 

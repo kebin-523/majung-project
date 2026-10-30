@@ -1,8 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { BADGE_PRIORITY, SOON_THRESHOLD_MIN, STALE_AFTER_MIN } from '../js/config.js';
-import { isStale, resolveBadge, shouldAutoRecheck } from '../js/domain/status.js';
-import { minutes, toMs } from '../js/domain/time.js';
+import { BADGE_PRIORITY, SOON_THRESHOLD_MIN, STALE_AFTER_MIN } from '../public/js/config.js';
+import { isStale, resolveBadge, shouldAutoRecheck } from '../public/js/domain/status.js';
+import { minutes, toMs } from '../public/js/domain/time.js';
 
 const NOW = toMs('2026-10-29 15:00');
 const fresh = NOW - minutes(1);

@@ -1,8 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { DEFAULT_AIRPORT_BUFFER_MIN, DEFAULT_MEETUP_MIN } from '../js/config.js';
-import { latestArrival, recommendDeparture } from '../js/domain/recommend.js';
-import { formatClock, minutes, toMs } from '../js/domain/time.js';
+import { DEFAULT_AIRPORT_BUFFER_MIN, DEFAULT_MEETUP_MIN } from '../public/js/config.js';
+import { latestArrival, recommendDeparture } from '../public/js/domain/recommend.js';
+import { formatClock, minutes, toMs } from '../public/js/domain/time.js';
 
 test('기본 계산: 도착 − 이동 − 공항 여유 − 입국 후 만남', () => {
   const { departureMs, totalLeadMin } = recommendDeparture({

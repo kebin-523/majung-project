@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { normalizeFlightNo, parseFlightNo } from '../js/domain/flightNo.js';
+import { normalizeFlightNo, parseFlightNo } from '../public/js/domain/flightNo.js';
 
 test('소문자·띄어쓰기·하이픈을 맞춰 읽는다', () => {
   assert.equal(normalizeFlightNo('ke 123'), 'KE123');

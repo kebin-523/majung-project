@@ -10,12 +10,12 @@
 ## 실행 방법
 
 ```bash
-npm start        # http://localhost:5173 (Python 3의 http.server 사용)
+npm start        # http://localhost:5173 (Python 3.7 이상의 http.server로 public/ 폴더를 제공)
 npm test         # 계산·변경 감지·상태 판단 단위 테스트 (Node 20 이상, node:test)
 ```
 
-- ES 모듈을 쓰기 때문에 `index.html`을 더블클릭(`file://`)해서는 동작하지 않습니다. 로컬 서버로 열어야 합니다.
-- Python이 없다면 아무 정적 파일 서버(예: VS Code Live Server)로 프로젝트 폴더를 열면 됩니다.
+- ES 모듈을 쓰기 때문에 `public/index.html`을 더블클릭(`file://`)해서는 동작하지 않습니다. 로컬 서버로 열어야 합니다.
+- Python이 없다면 아무 정적 파일 서버(예: VS Code Live Server)로 `public/` 폴더를 서버의 루트로 열면 됩니다.
 - 글꼴(Pretendard)은 CDN에서 받아 오므로 인터넷 연결이 필요합니다. 연결이 없으면 시스템 글꼴로 보입니다.
 
 ## 화면 흐름
@@ -55,22 +55,23 @@ npm test         # 계산·변경 감지·상태 판단 단위 테스트 (Node 2
 ## 폴더 구조
 
 ```
-index.html              단일 페이지 (양옆 모션 배경 SVG 포함)
-css/                    tokens(디자인 값) · base · layout · components
-js/
-  config.js             ★ 설정 상수의 단일 출처 (아래 참고)
-  store.js              ★ 저장 담당 단일 모듈 (sessionStorage)
-  app.js                해시 라우팅과 화면 교체
-  domain/               DOM 없는 순수 함수: 시각 · 추천 계산 · 변경 감지 · 상태 판단 · 편명
-  adapters/             항공편 · 주소 · 이동 시간 조회 (지금은 목업, 실제 API로 교체할 경계)
-  mock/                 목업 데이터와 시나리오 스위치 · 데모 시계
-  ui/screens/           화면 4개
-  ui/components/        카드 · 칩 · 배지 · 변경 띠 · 바텀시트 · 진행 바 · 아이콘
-assets/icons/           1.5px 선형 SVG 아이콘 + 로고
-tests/                  domain/ 단위 테스트
+public/                 화면 파일 (로컬 서버와 배포가 이 폴더를 제공)
+  index.html            단일 페이지 (양옆 모션 배경 SVG 포함)
+  css/                  tokens(디자인 값) · base · layout · components
+  js/
+    config.js           ★ 설정 상수의 단일 출처 (아래 참고)
+    store.js            ★ 저장 담당 단일 모듈 (sessionStorage)
+    app.js              해시 라우팅과 화면 교체
+    domain/             DOM 없는 순수 함수: 시각 · 추천 계산 · 변경 감지 · 상태 판단 · 편명
+    adapters/           항공편 · 주소 · 이동 시간 조회 (지금은 목업, 실제 API로 교체할 경계)
+    mock/               목업 데이터와 시나리오 스위치 · 데모 시계
+    ui/screens/         화면 4개
+    ui/components/      카드 · 칩 · 배지 · 변경 띠 · 바텀시트 · 진행 바 · 아이콘
+  assets/icons/         1.5px 선형 SVG 아이콘 + 로고
+tests/                  domain/ 단위 테스트 (public/js 의 순수 함수를 불러와 검사)
 ```
 
-## 설정 상수 (`js/config.js`)
+## 설정 상수 (`public/js/config.js`)
 
 숫자를 바꾸려면 이 파일만 고치면 화면·계산·테스트에 모두 반영됩니다.
 
@@ -193,7 +194,7 @@ tests/                  domain/ 단위 테스트
 
 ## 실제 API로 바꿀 때
 
-1. `js/adapters/*.js` 안쪽을 서버 경유 호출로 교체합니다. 반환 형태(`{ ok, data }` / `{ ok: false, reason: 'notfound' | 'error' | 'timeout' }`)는 유지합니다.
-2. `js/app.js`의 `ctx.now` / `ctx.today`를 목업 시계에서 실제 시각으로 바꿉니다.
-3. `index.html`의 `.mock-badge`와 `js/mock/`을 제거합니다.
-4. 시간·시각은 항상 `Asia/Seoul` 기준으로 `js/domain/time.js`의 함수를 거쳐 다룹니다.
+1. `public/js/adapters/*.js` 안쪽을 서버 경유 호출로 교체합니다. 반환 형태(`{ ok, data }` / `{ ok: false, reason: 'notfound' | 'error' | 'timeout' }`)는 유지합니다.
+2. `public/js/app.js`의 `ctx.now` / `ctx.today`를 목업 시계에서 실제 시각으로 바꿉니다.
+3. `public/index.html`의 `.mock-badge`와 `public/js/mock/`을 제거합니다.
+4. 시간·시각은 항상 `Asia/Seoul` 기준으로 `public/js/domain/time.js`의 함수를 거쳐 다룹니다.

@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   dayLabel, formatClock, formatClockWithDay, formatSpoken, formatSpokenWithDay, isSameDayKst, partsKst, toMs,
-} from '../js/domain/time.js';
+} from '../public/js/domain/time.js';
 
 test('toMs: 형식만 다른 같은 시각은 같은 값이 된다', () => {
   const a = toMs('2026-10-29 17:50');
