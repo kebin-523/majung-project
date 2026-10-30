@@ -188,6 +188,50 @@ test('옵션 오류는 오류 분류에 가려지지 않고 바로 던진다', (
   assert.throws(() => interpretArrivalsResponse({ status: 200, text: 'Unauthorized' }, {}), TypeError);
 });
 
+// ── 잘림 표시(truncated) ──────────────────────────────────
+
+test('truncated: 전체(totalCount)가 받은 행보다 크면 true 이고, 받은 행만 돌려준다 (다음 페이지는 부르지 않음)', () => {
+  const result = search(makeBody([makeRow({ fid: 'A' }), makeRow({ fid: 'B' })], 12));
+  assert.equal(result.ok, true);
+  assert.equal(result.truncated, true);
+  assert.deepEqual(result.data.map((f) => f.flightId), ['A', 'B']);
+});
+
+test('truncated: 전체와 받은 행이 같으면 false 이고, 재확인(refresh)·오류 결과에는 붙이지 않는다', () => {
+  for (const name of [FIXTURES.arrived, FIXTURES.touchdown, FIXTURES.beforeLanding, FIXTURES.slave]) {
+    assert.equal(search(loadFixture(name)).truncated, false, name);
+  }
+  assert.equal(search(makeBody([makeRow({ fid: 'A' }), makeRow({ fid: 'B' })], 2)).truncated, false);
+
+  // 재확인 성공 결과: 전체가 더 커도 붙이지 않는다
+  const refreshed = refresh(makeBody([makeRow({ fid: 'A' })], 5), 'A');
+  assert.equal(refreshed.ok, true);
+  assert.equal('truncated' in refreshed, false);
+
+  // 실패 결과(notfound · missing · 응답 모양 오류 · 유효한 행 없음)에도 붙이지 않는다
+  const failures = [
+    search(loadFixture(FIXTURES.none)),
+    refresh(loadFixture(FIXTURES.none), 'x'),
+    search(null),
+    search(makeBody([makeRow({ scheduleDateTime: 'x' })], 5)),
+  ];
+  for (const failure of failures) {
+    assert.equal(failure.ok, false);
+    assert.equal('truncated' in failure, false);
+  }
+});
+
+test('truncated: 무효 행이 섞여도 받은 행(유효한 행 + 버린 행) 기준으로 비교한다', () => {
+  const items = [makeRow({ fid: 'OK1' }), makeRow({ fid: 'BAD', scheduleDateTime: 'x' }), makeRow({ fid: 'OK2' })];
+
+  const same = search(makeBody(items, 3)); // 받은 행 3 = 전체 3 (유효한 행은 2)
+  assert.equal(same.skippedRows, 1);
+  assert.equal(same.data.length, 2);
+  assert.equal(same.truncated, false);
+
+  assert.equal(search(makeBody(items, 4)).truncated, true); // 전체 4 > 받은 행 3
+});
+
 // ── 도착 날짜 ────────────────────────────────────────────
 
 test('arrivalDate: 예정 시각의 한국 달력 날짜 (한국 00:20 은 UTC로는 전날)', () => {

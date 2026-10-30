@@ -131,7 +131,16 @@ function checkOptions(options) {
  * @param {'search'|'refresh'} [options.mode='search']  search: 처음 검색(여러 행), refresh: 등록한 편의 재확인(f_id + searchday 조회, 한 건)
  * @param {string} [options.fid]                        refresh 에서 찾을 fid
  * @param {number} options.fetchedAt                    조회 시각(ms)
- * @returns {{ ok: true, data: object|object[], skippedRows: number } | { ok: false, reason: 'notfound'|'missing'|'quota'|'config'|'error' }}
+ * @returns {{ ok: true, data: object[], skippedRows: number, truncated: boolean }
+ *   | { ok: true, data: object, skippedRows: number }
+ *   | { ok: false, reason: 'notfound'|'missing'|'quota'|'config'|'error' }}
+ *   앞의 둘은 각각 search 성공, refresh 성공 결과다.
+ *
+ * 잘림 표시(truncated)
+ * - 검색(search) 성공 결과에만 붙인다. totalCount(조건에 맞는 전체 행 수)가 받은 행 수(유효한 행 + 버린 행)보다 크면 true 이다.
+ *   (관찰: numOfRows=10 으로 받은 하루치 응답이 10행에 totalCount 1153 이었다. totalCount 는 페이지 크기와 상관없다.)
+ * - 다음 페이지를 자동으로 부르지 않는다. 페이지마다 API 호출이 하루 한도에서 빠지기 때문이다. 받은 행만 돌려주고 표시만 남긴다.
+ * - 재확인(refresh) 결과와 실패 결과에는 붙이지 않는다.
  *
  * 행 처리 규칙
  * - 요청한 날짜와 다른 행도 제외하지 않고 arrivalDate 를 담아 돌려준다. (searchday 가 예정 날짜 기준이라는 것은 JSON에서 확인된 게 아니라 관찰이다.)
@@ -183,7 +192,7 @@ export function normalizeArrivalsBody(body, options) {
     const found = flights.find((flight) => flight.flightId === fid);
     return found ? { ok: true, data: found, skippedRows } : fail('error');
   }
-  return { ok: true, data: flights, skippedRows };
+  return { ok: true, data: flights, skippedRows, truncated: total > items.length };
 }
 
 /**
