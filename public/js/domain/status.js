@@ -48,3 +48,17 @@ export function resolveBadge({ now, departure, lastChecked, hasUnseenChange = fa
 
   return BADGE_PRIORITY.find((key) => active[key]);
 }
+
+/**
+ * 추천 카드 대신 안내 상자를 보여 줘야 하는 항공편인가. (DOM 접근 없음)
+ *  - 'arrived': 이미 도착한 편 (status 'arrived'). 착륙('touchdown')은 해당하지 않고 추천 카드를 유지한다.
+ *  - 'unknown': 운항 상태를 알아보지 못한 편 (결항·회항 포함). 추천 출발 시각을 계산하지 않는다.
+ *  - null: 추천 카드를 그린다.
+ * @param {{ status?: string, landed?: boolean }} flight
+ * @returns {'arrived'|'unknown'|null}
+ */
+export function flightNoticeKind({ status, landed } = {}) {
+  if (landed === true || status === 'arrived') return 'arrived';
+  if (status === 'unknown') return 'unknown';
+  return null;
+}

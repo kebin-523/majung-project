@@ -13,6 +13,10 @@ export const BUFFER_MAX_MIN = 120;
 export const ADDRESS_SEARCH_DEBOUNCE_MS = 400;
 export const ADDRESS_MIN_QUERY_LENGTH = 2;
 
+// 주소 검색·이동 시간 어댑터가 아직 목업인가. 상단 표시에 쓴다. (모드는 clock.js 참고)
+// 카카오 API 를 연결해 둘 다 실제가 되면 false 로 바꾼다. (그러면 실제 모드의 상단 표시가 사라진다)
+export const ADDRESS_ROUTE_IS_MOCK = true;
+
 // 상태 판단 기준 (가정, 갱신 주기 확정 후 조정)
 export const SOON_THRESHOLD_MIN = 60; // 추천 출발 60분 전부터 "곧 출발"
 // 마지막 확인 후 10분이 지나면 "오래됨". 화면을 연 채 이 시간이 지나면 자동으로 한 번 다시 확인하는 간격으로도 쓴다.

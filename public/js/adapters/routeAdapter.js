@@ -3,7 +3,8 @@
 // 반환: { ok: true, data: { minutes, distanceKm, fetchedAt, source } } | { ok: false, reason: 'error' | 'timeout' }
 // refresh: true 는 "도착 정보가 바뀌어 이동 시간을 다시 조회"하는 경우다.
 import { MOCK_DRIVE, MOCK_DRIVE_REFRESH_DELTA_MIN } from '../mock/places.js';
-import { getScenario, mockNow, wait } from '../mock/scenarios.js';
+import { clockNow } from '../clock.js';
+import { getScenario, wait } from '../mock/scenarios.js';
 
 export async function getDriveTime(origin, { refresh = false } = {}) {
   const scenario = getScenario();
@@ -24,7 +25,7 @@ export async function getDriveTime(origin, { refresh = false } = {}) {
     data: {
       minutes: base.minutes + delta,
       distanceKm: base.distanceKm,
-      fetchedAt: mockNow(scenario),
+      fetchedAt: clockNow(), // 시나리오 모드는 데모 시계, 실제 모드는 실제 시각 (이동 시간 값 자체는 두 모드 모두 목업)
       source: 'mock',
     },
   };

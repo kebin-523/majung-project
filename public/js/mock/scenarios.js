@@ -8,12 +8,15 @@
 //   routefail 이동 시간 조회 실패 (출발지 단계에서 막힌다)
 //   passed    추천 출발 시각이 이미 지난 상태
 //   recheckfail 추천 출발 시각이 지난 상태에서 "이동 시간 다시 확인"만 실패 (처음 조회는 성공)
-//   landed    이미 도착한 항공편
+//   landed    이미 도착한 항공편 (status: arrived)
+//   touchdown 착륙한 항공편 (추천 카드는 유지하고 말풍선만 바뀐다)
+//   unknown   알 수 없는 운항 상태 (결항·회항 포함, 추천 시각을 계산하지 않는다)
 //
-// 실제 API를 연결하면 이 파일과 js/mock/* 은 쓰이지 않는다.
+// 이 시나리오가 주소창에 있으면 "시나리오 모드"다. 항공편도 목업을 쓰고 데모 시계를 쓴다. (clock.js 참고)
+// 실제 모드(?scenario= 가 없을 때)에서는 항공편에 이 시나리오를 쓰지 않는다. 주소·이동 시간은 아직 목업이다.
 import { partsKst, toMs } from '../domain/time.js';
 
-export const SCENARIOS = ['normal', 'changed', 'stale', 'fail', 'notfound', 'routefail', 'passed', 'recheckfail', 'landed'];
+export const SCENARIOS = ['normal', 'changed', 'stale', 'fail', 'notfound', 'routefail', 'passed', 'recheckfail', 'landed', 'touchdown', 'unknown'];
 
 export const MOCK_LATENCY_MS = 300; // 실제 API처럼 응답에 시간이 걸리는 느낌
 

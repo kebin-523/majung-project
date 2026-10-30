@@ -10,6 +10,7 @@ const MESSAGES = {
   format: '편명을 한 번 더 확인해 주실래요?',
   notfound: '이 날짜에 해당하는 항공편을 찾지 못했어요. 편명과 날짜를 확인해 주세요.',
   error: '지금은 항공편 정보를 가져오지 못했어요. 잠시 후 다시 시도해 주세요.',
+  quota: '지금은 항공편 정보를 확인하기 어려워요. 조금 뒤에 다시 시도해 주세요.', // 호출 한도 초과 (DesignGuide 7장)
   loading: '항공편을 찾고 있어요.',
 };
 
@@ -111,7 +112,7 @@ export function renderFlightSearch({ main, footer }, ctx) {
     setBusy(false);
 
     if (!result.ok) {
-      showNotice(result.reason === 'notfound' ? 'notfound' : 'error');
+      showNotice(['notfound', 'quota'].includes(result.reason) ? result.reason : 'error');
       return;
     }
 

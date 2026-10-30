@@ -6,14 +6,16 @@
 // - 화면을 연 채 마지막 확인이 STALE_AFTER_MIN(10분)을 넘기면 자동으로 한 번 다시 확인한다.
 //   확인하는 동안 "확인 중이에요"를 보여 주고, 실패하면 반복하지 않고 "다시 시도"로 넘긴다.
 // - 상태 화면: 확인 중 / 최신 확인 못함(오래됨, 추천 시각과 마지막 확인 시각은 계속 보인다) /
-//   추천 출발 시각 지남(이동 시간 다시 확인) / 이미 도착한 항공편 / 이동 시간 못 불러옴.
+//   추천 출발 시각 지남(이동 시간 다시 확인) / 이미 도착한 항공편 · 운항 상태 확인 필요(안내 상자, 추천 시각 계산 안 함) / 이동 시간 못 불러옴.
+// - 착륙한 항공편은 추천 카드를 유지하고 말풍선만 바꾼다. (근거 칩의 비행기 도착 시각은 그대로 보여 준다)
 // - 모션: 카드 등장, 값이 바뀔 때의 숫자 교체(여유 저장 250ms, 도착 변경 400ms + 항적선 이동), "출발" 배지 한 번 커졌다 돌아옴.
 import { getFlight } from '../../adapters/flightAdapter.js';
 import { getDriveTime } from '../../adapters/routeAdapter.js';
 import { DEFAULT_AIRPORT_BUFFER_MIN, DEFAULT_MEETUP_MIN, STATUS_RECHECK_INTERVAL_MS } from '../../config.js';
-import { detectArrivalChange, shouldAnnounce, summarizeChange } from '../../domain/change.js';
+import { isScenarioMode } from '../../clock.js';
+import { detectArrivalChange, isRealTravelRecheck, shouldAnnounce, summarizeChange } from '../../domain/change.js';
 import { latestArrival, recommendDeparture } from '../../domain/recommend.js';
-import { isStale, resolveBadge, shouldAutoRecheck } from '../../domain/status.js';
+import { flightNoticeKind, isStale, resolveBadge, shouldAutoRecheck } from '../../domain/status.js';
 import {
   dayLabel, formatClock, formatClockWithDay, formatSpoken, formatSpokenWithDay, isSameDayKst,
 } from '../../domain/time.js';
@@ -27,10 +29,12 @@ import { icon } from '../components/icon.js';
 const BUBBLES = {
   default: '곧 만나겠네요, 슬슬 준비해 볼까요?',
   passed: '추천 출발 시각이 지났어요. 이동 시간을 다시 확인해 볼까요?',
+  touchdown: '비행기가 착륙했어요, 입국 절차가 끝나면 만날 수 있어요.',
 };
 
 const MESSAGES = {
-  landed: '이 항공편은 이미 도착했어요.',
+  arrived: '이 항공편은 이미 도착했어요. 입국 절차를 마친 뒤에 만날 수 있어요. 다른 항공편을 찾아볼까요?',
+  unknown: '이 항공편의 운항 상태를 확인해 주세요. 확인이 필요한 표시가 있어서 추천 출발 시각은 계산하지 않았어요. 항공사에 먼저 확인해 보세요.',
   noTravel: '이동 시간을 불러오지 못해서 추천 시각을 계산하지 못했어요.',
   travelChecking: '이동 시간을 확인하고 있어요.',
   travelRecheckFailed: '이동 시간을 다시 확인하지 못했어요. 잠시 후 다시 시도해 주세요.',
@@ -69,7 +73,8 @@ export function buildResultViewModel({ flight, drive, buffers, now, hasChange = 
     dayText: showDay ? dayLabel(departureMs, now) : null,
     timeText: formatClock(departureMs),
     timeSpoken: formatSpoken(departureMs),
-    bubbleText: badgeKey === 'passed' ? BUBBLES.passed : BUBBLES.default,
+    // 추천 시각이 지났다면 "지남" 안내가 먼저다. 그 밖에 착륙한 편은 말풍선만 바꾼다.
+    bubbleText: badgeKey === 'passed' ? BUBBLES.passed : flight.status === 'touchdown' ? BUBBLES.touchdown : BUBBLES.default,
     arrivalText: formatClockWithDay(arrival, now),
     arrivalSpoken: formatSpokenWithDay(arrival, now),
     travelMin: drive.minutes,
@@ -82,6 +87,18 @@ export function buildResultViewModel({ flight, drive, buffers, now, hasChange = 
 }
 
 const noticeHtml = (text) => `<div class="notice"><p class="notice__text">${icon('info')}<span>${text}</span></p></div>`;
+
+/** 도착·운항 상태 확인 필요 안내 상자. 상자 안에 "항공편 바꾸기" Text 버튼이 있다. 도착한 편은 원래 예정만 "도착 예정 11:00"으로 보여 준다. */
+function flightNoticeHtml(kind, flight) {
+  const scheduled = kind === 'arrived'
+    ? `<p class="caption tabular"><span aria-hidden="true">도착 예정 ${formatClock(flight.scheduled)}</span><span class="sr-only">도착 예정 ${formatSpoken(flight.scheduled)}</span></p>`
+    : '';
+  return `<div class="notice">
+      <p class="notice__text">${icon('info')}<span>${MESSAGES[kind]}</span></p>
+      ${scheduled}
+      <button class="btn btn--text" type="button" data-action="change-flight">항공편 바꾸기</button>
+    </div>`;
+}
 
 export function renderResult({ main }, ctx) {
   const state = load();
@@ -99,7 +116,9 @@ export function renderResult({ main }, ctx) {
     meetupMin: DEFAULT_MEETUP_MIN,
   };
 
-  const canShowCard = !flight.landed && Number.isFinite(drive?.minutes);
+  // 도착·운항 상태를 알 수 없는 편은 추천 카드 대신 안내 상자를 보여 준다. (추천 시각을 계산하지 않는다)
+  const noticeKind = flightNoticeKind(flight);
+  const canShowCard = noticeKind === null && Number.isFinite(drive?.minutes);
   let checking = canShowCard; // 열자마자 최신 정보를 확인한다. 확인하는 동안 이전 값을 최신처럼 보이게 하지 않는다.
   let travelBusy = false;
   let pulsed = false; // "출발" 배지 모션은 이 화면에서 한 번만
@@ -116,7 +135,7 @@ export function renderResult({ main }, ctx) {
     <div id="notice-host" class="slot" aria-live="polite"></div>
     <div id="actions-host" class="slot actions"></div>
     <div class="text-actions">
-      <button id="change-flight-btn" class="btn btn--text" type="button">항공편 바꾸기</button>
+      ${noticeKind ? '' : '<button id="change-flight-btn" class="btn btn--text" type="button">항공편 바꾸기</button>'}
       <button id="back-btn" class="btn btn--text" type="button">이전</button>
     </div>`;
 
@@ -159,9 +178,8 @@ export function renderResult({ main }, ctx) {
    *   buffer = 여유 시간을 저장해 다시 계산(숫자만 250ms), change = 도착 정보가 바뀌어 다시 계산(숫자 + 항적선 400ms)
    */
   function drawCard({ animate = null } = {}) {
-    if (flight.landed) {
-      // 이미 도착한 항공편은 추천 시각 대신 상태만 안내한다.
-      host.innerHTML = noticeHtml(MESSAGES.landed);
+    if (noticeKind) {
+      host.innerHTML = flightNoticeHtml(noticeKind, flight);
       return;
     }
     if (!Number.isFinite(drive?.minutes)) {
@@ -232,7 +250,7 @@ export function renderResult({ main }, ctx) {
   async function refresh() {
     if (refreshing) return;
     refreshing = true;
-    const latest = await getFlight(flight.flightId);
+    const latest = await getFlight(flight.flightId, { arrivalDate: flight.arrivalDate });
     if (!host.isConnected) return; // 기다리는 사이 다른 화면으로 이동했다.
 
     let newChange = false;
@@ -245,7 +263,8 @@ export function renderResult({ main }, ctx) {
         // 도착 시각을 이동 시간만큼 기계적으로 미루지 않고, 이동 시간을 다시 조회한다. 실패하면 이전 값을 쓰고 재조회했다고 표시하지 않는다.
         const route = await getDriveTime(state.origin, { refresh: true });
         if (!host.isConnected) return;
-        if (route.ok) nextDrive = route.data;
+        // 이동 시간이 목업이고 항공편이 실제인 모드에서는 "다시 확인했어요"를 쓰지 않는다. (이전 이동 시간으로 계산한다)
+        if (route.ok && isRealTravelRecheck(route.data, { scenarioMode: isScenarioMode() })) nextDrive = route.data;
 
         change = {
           ...summarizeChange({
@@ -342,6 +361,9 @@ export function renderResult({ main }, ctx) {
     }, STATUS_RECHECK_INTERVAL_MS);
   }
 
-  main.querySelector('#change-flight-btn').addEventListener('click', () => ctx.navigate('flight'));
+  main.querySelector('#change-flight-btn')?.addEventListener('click', () => ctx.navigate('flight'));
+  host.addEventListener('click', (event) => {
+    if (event.target.closest('[data-action="change-flight"]')) ctx.navigate('flight');
+  });
   main.querySelector('#back-btn').addEventListener('click', () => ctx.navigate('origin'));
 }

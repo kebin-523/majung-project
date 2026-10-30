@@ -19,7 +19,8 @@ function dateText(ms, now) {
 }
 
 function cardHtml(flight, { now, checked }) {
-  const changed = flight.changed != null;
+  // 도착한 편은 변경 시각이 실제 도착 시각처럼 보일 수 있어, 원래 예정만 보여 준다. (DesignGuide 12장)
+  const changed = !flight.landed && flight.changed != null;
   const arrival = changed ? flight.changed : flight.scheduled;
 
   // 출발 도시·항공사는 API가 제공하는지 확인 전이라, 값이 있을 때만 보여 준다.
