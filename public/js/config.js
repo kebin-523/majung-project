@@ -46,3 +46,7 @@ export const BADGE_PRIORITY = ['passed', 'stale', 'changed', 'soon', 'relaxed'];
 //   시간대별 비율: 0~1시간 53% · 1~2시간 23% · 2~4시간 29% · 4~8시간 35% · 8시간 이상 10%.
 export const EARLY_NOTICE_MIN = 10;
 export const LATE_NOTICE_MIN = 15;
+
+// 시간대로 찾기: 한 번에 볼 수 있는 도착 시간대의 최대 폭(시간). (가정, 인천공항 API 한 번 호출로 numOfRows 500행을 넘기지 않게 잡은 값)
+// 서버의 MAX_WINDOW_MIN(server/icn/handleFlights.js)과 같은 뜻이다. 서버는 public/ 을 불러오지 않아 값을 따로 둔다. 바꿀 때는 둘 다 고친다.
+export const WINDOW_MAX_HOURS = 3;
