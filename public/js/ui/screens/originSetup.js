@@ -2,6 +2,7 @@
 import { getDriveTime } from '../../adapters/routeAdapter.js';
 import { searchAddress } from '../../adapters/placeAdapter.js';
 import { ADDRESS_MIN_QUERY_LENGTH, ADDRESS_SEARCH_DEBOUNCE_MS } from '../../config.js';
+import { createPlaceSearch } from '../../domain/placeSearch.js';
 import { load, save } from '../../store.js';
 import { icon } from '../components/icon.js';
 import { renderProgress } from '../components/progress.js';
@@ -41,7 +42,7 @@ export function renderOriginSetup({ main, footer }, ctx) {
     ${renderProgress(3)}
     <div class="heading-group">
       <h1 tabindex="-1">어디서 출발하시나요?</h1>
-      <p class="caption privacy">${icon('pin')}<span>입력한 주소는 이동 시간을 계산하는 데만 사용해요. 탭을 닫으면 지워져요.</span></p>
+      <p class="caption privacy">${icon('pin')}<span>입력한 장소는 검색을 위해 카카오 서비스에 전달돼요. 마중은 이 장소를 저장하지 않고, 탭을 닫으면 이 브라우저에서도 지워져요.</span></p>
     </div>
     <form id="place-form" class="form" role="search" novalidate>
       <div class="field">
@@ -98,38 +99,27 @@ export function renderOriginSetup({ main, footer }, ctx) {
     }
   }
 
-  // 응답이 순서대로 오지 않아도 가장 마지막 검색 결과만 화면에 반영한다.
-  let searchSeq = 0;
+  // 응답이 순서대로 오지 않아도 가장 마지막 검색 결과만 화면에 반영한다. (이전 요청은 취소하고, 늦게 온 응답은 버린다)
+  const searcher = createPlaceSearch(searchAddress);
   let debounceTimer = null;
 
   async function runSearch() {
-    const query = queryInput.value.trim();
-    const seq = ++searchSeq;
+    const outcome = await searcher.run(queryInput.value, { onLoading: () => showStatus('loading') });
+    if (outcome.kind === 'stale' || !form.isConnected) return;
 
-    if (query === '') {
+    if (outcome.kind === 'cleared') {
       showStatus(null);
       places = [];
       selectedId = null;
       renderList();
-      return;
+    } else if (outcome.kind === 'tooShort' || outcome.kind === 'searchError') {
+      showStatus(outcome.kind);
+    } else {
+      places = outcome.kind === 'results' ? outcome.places : [];
+      if (!places.some((p) => p.id === selectedId)) selectedId = null;
+      renderList();
+      showStatus(places.length ? 'results' : 'empty', places.length);
     }
-    if (query.length < ADDRESS_MIN_QUERY_LENGTH) {
-      showStatus('tooShort');
-      return;
-    }
-
-    showStatus('loading');
-    const result = await searchAddress(query);
-    if (seq !== searchSeq || !form.isConnected) return;
-
-    if (!result.ok) {
-      showStatus('searchError');
-      return;
-    }
-    places = result.data;
-    if (!places.some((p) => p.id === selectedId)) selectedId = null;
-    renderList();
-    showStatus(places.length ? 'results' : 'empty', places.length);
   }
 
   let busy = false;
