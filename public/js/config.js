@@ -50,3 +50,7 @@ export const LATE_NOTICE_MIN = 15;
 // 시간대로 찾기: 한 번에 볼 수 있는 도착 시간대의 최대 폭(시간). (가정, 인천공항 API 한 번 호출로 numOfRows 500행을 넘기지 않게 잡은 값)
 // 서버의 MAX_WINDOW_MIN(server/icn/handleFlights.js)과 같은 뜻이다. 서버는 public/ 을 불러오지 않아 값을 따로 둔다. 바꿀 때는 둘 다 고친다.
 export const WINDOW_MAX_HOURS = 3;
+
+// 도착 날짜로 고를 수 있는 범위: 어제부터 6일 뒤까지. (DesignGuide "도착 날짜", 인천공항 API 조회 범위 D-3~D+6 안에서 정한 가정값)
+export const ARRIVAL_DATE_PAST_DAYS = 1;
+export const ARRIVAL_DATE_FUTURE_DAYS = 6;

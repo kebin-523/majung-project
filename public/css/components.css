@@ -116,7 +116,8 @@ h1:focus { outline: none; }
 }
 
 .field__input:focus,
-.date-field:focus-within {
+.date-field:focus-visible,
+.date-field[aria-expanded="true"] {
   outline: none;
   border-color: var(--color-sunset);
   box-shadow: 0 0 0 1px var(--color-sunset);
@@ -155,14 +156,20 @@ h1:focus { outline: none; }
 
 .field__error:empty { display: none; }
 
-/* 도착 날짜: 읽기 쉬운 글자를 보여 주고, 실제 날짜 입력은 그 위에 투명하게 겹친다 */
+/* 도착 날짜: 칸 전체가 달력을 여는 버튼이다 (DesignGuide 6장 "날짜 달력", 가정) */
+.date-picker { position: relative; }
+
 .date-field {
-  position: relative;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: var(--space-2);
+  width: 100%;
   padding: 0 var(--space-3);
+  color: var(--color-ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
 }
 
 .date-field__value { font-size: var(--fs-body); font-weight: 600; }
@@ -174,14 +181,95 @@ h1:focus { outline: none; }
   color: var(--color-sunset-deep);
 }
 
-.date-field__input {
+/* 달력 패널: 날짜 칸 아래에 겹쳐 열린다. Cream 배경 · Border · 카드 모서리 · 옅은 그림자 */
+.date-panel {
   position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  opacity: 0;
+  top: calc(100% + var(--space-2));
+  left: 0;
+  right: 0;
+  z-index: 10;
+  padding: var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  background: var(--color-cream);
+  box-shadow: var(--shadow-float);
+  animation: date-panel-in var(--dur-base) var(--ease);
+}
+
+.date-panel[hidden] { display: none; }
+
+@keyframes date-panel-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.date-panel__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-2);
+}
+
+.date-panel__title { margin: 0; font-size: var(--fs-h3); line-height: var(--lh-h3); font-weight: 600; }
+
+.date-panel__nav {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--size-button-h);
+  height: var(--size-button-h);
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--color-sunset-deep);
   cursor: pointer;
+}
+
+.date-panel__nav:disabled,
+.date-panel__day:disabled { opacity: 0.4; cursor: default; }
+
+.date-panel__row { display: grid; grid-template-columns: repeat(7, 1fr); justify-items: center; }
+
+.date-panel__weekday {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--size-touch-min);
+  font-size: var(--fs-chip);
+  line-height: var(--lh-chip);
+  font-weight: 600;
+  color: var(--color-warm-gray);
+}
+
+.date-panel__cell { display: flex; align-items: center; justify-content: center; }
+
+.date-panel__day {
+  width: var(--size-touch-min);
+  height: var(--size-touch-min);
+  border: 2px solid transparent;
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--color-ink);
+  font: inherit;
   font-size: var(--fs-body);
+  cursor: pointer;
+  transition: transform var(--dur-fast) var(--ease);
+}
+
+.date-panel__day:active:not(:disabled) { transform: scale(0.96); }
+.date-panel__day--today { background: var(--color-peach); }
+
+/* 고른 날: Amber 원 + Ink 글자(Bold) + Ink 테두리 (색만으로 구분하지 않는다) */
+.date-panel__day--selected {
+  background: var(--color-amber);
+  border-color: var(--color-ink);
+  font-weight: 700;
+}
+
+.date-panel__nav:focus-visible,
+.date-panel__day:focus-visible {
+  outline: 2px solid var(--color-ink);
+  outline-offset: 2px;
 }
 
 /* 찾기 방식 탭 · 출발 도시 칩 (DesignGuide 6장, 가정): 라디오는 숨기고 키보드로는 그대로 움직인다. 선택하면 Amber + Ink + 체크 */
