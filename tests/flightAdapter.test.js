@@ -2,7 +2,7 @@
 // 네트워크는 쓰지 않는다.
 import test, { afterEach, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
-import { getFlight, searchFlights } from '../public/js/adapters/flightAdapter.js';
+import { getFlight, searchFlights, searchFlightsByWindow } from '../public/js/adapters/flightAdapter.js';
 import { todayKst } from '../public/js/mock/scenarios.js';
 import { blockNetwork } from './helpers/blockNetwork.js';
 
@@ -166,4 +166,50 @@ test('시나리오 모드는 서버를 부르지 않고 목업을 쓴다: landed
     assert.equal(result.data[0].source, 'mock');
   }
   assert.equal(calls.length, 0);
+});
+
+// ── 시간대 조회(window) ─────────────────────────────────────
+
+test('실제 모드: window 는 /api/flights?mode=window&date&from&to 로 한 번 부르고 항공편을 변환한다', async () => {
+  stubFetch({ ok: true, data: [server()], truncated: false, skippedRows: 0, fetchedAt: 1_000 });
+  const result = await searchFlightsByWindow('2026-10-30', '1700', '1800');
+
+  assert.equal(result.ok, true);
+  assert.equal(result.data[0].departureCity, '도쿄/나리타');
+  assert.deepEqual(result.meta, { truncated: false, skippedRows: 0 });
+  assert.equal(calls.length, 1);
+  const url = new URL(calls[0], 'https://x.example');
+  assert.equal(url.searchParams.get('mode'), 'window');
+  assert.equal(url.searchParams.get('date'), '2026-10-30');
+  assert.equal(url.searchParams.get('from'), '1700');
+  assert.equal(url.searchParams.get('to'), '1800');
+});
+
+test('실제 모드: window 의 notfound 는 notfound 로, 빈 data 는 error 로', async () => {
+  stubFetch({ ok: false, reason: 'notfound' });
+  assert.deepEqual(await searchFlightsByWindow('2026-10-30', '1700', '1800'), { ok: false, reason: 'notfound' });
+  stubFetch({ ok: true, data: [], fetchedAt: 1 });
+  assert.deepEqual(await searchFlightsByWindow('2026-10-30', '1700', '1800'), { ok: false, reason: 'error' });
+});
+
+test('실제 모드: window 의 quota 는 quota', async () => {
+  stubFetch({ ok: false, reason: 'quota' });
+  assert.deepEqual(await searchFlightsByWindow('2026-10-30', '1700', '1800'), { ok: false, reason: 'quota' });
+});
+
+test('시나리오 모드: window 는 시간대에 드는 목업만 돌려준다', async () => {
+  globalThis.location = { search: '?scenario=normal' };
+  const result = await searchFlightsByWindow(todayKst(), '1700', '1800');
+  assert.equal(result.ok, true);
+  assert.ok(result.data.length >= 2);
+  assert.ok(result.data.every((f) => new Date(f.scheduled + 9 * 3600_000).getUTCHours() === 17));
+  assert.ok(new Set(result.data.map((f) => f.departureCity)).size >= 2);
+  assert.equal(calls.length, 0); // 목업은 서버를 부르지 않는다
+});
+
+test('시나리오 모드: 시간대에 목업이 없으면 notfound, fail 시나리오는 error', async () => {
+  globalThis.location = { search: '?scenario=normal' };
+  assert.deepEqual(await searchFlightsByWindow(todayKst(), '0300', '0400'), { ok: false, reason: 'notfound' });
+  globalThis.location = { search: '?scenario=fail' };
+  assert.deepEqual(await searchFlightsByWindow(todayKst(), '1700', '1800'), { ok: false, reason: 'error' });
 });

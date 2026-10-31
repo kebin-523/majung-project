@@ -20,7 +20,7 @@ import { STALE_AFTER_MIN } from '../config.js';
 import { isScenarioMode, clockNow } from '../clock.js';
 import { normalizeFlightNo } from '../domain/flightNo.js';
 import { minutes } from '../domain/time.js';
-import { findFlight, findFlights } from '../mock/flights.js';
+import { findFlight, findFlights, findFlightsInWindow } from '../mock/flights.js';
 import { getScenario, wait } from '../mock/scenarios.js';
 
 const API_PATH = '/api/flights';
@@ -64,6 +64,18 @@ async function mockSearch(flightNo, arrivalDate) {
   if (found.length === 0) return { ok: false, reason: 'notfound' };
 
   // 처음 조회한 값은 아직 변경 전이다. (changed 시나리오의 변경은 getFlight 로 다시 확인할 때 나타난다.)
+  return { ok: true, data: found.map((raw) => toMockFlight(raw, { scenario, showChange: false })) };
+}
+
+async function mockWindow(arrivalDate, from, to) {
+  const scenario = getScenario();
+  await wait();
+
+  if (scenario === 'fail') return { ok: false, reason: 'error' };
+  if (scenario === 'notfound') return { ok: false, reason: 'notfound' };
+
+  const found = findFlightsInWindow(arrivalDate, from, to);
+  if (found.length === 0) return { ok: false, reason: 'notfound' };
   return { ok: true, data: found.map((raw) => toMockFlight(raw, { scenario, showChange: false })) };
 }
 
@@ -136,6 +148,17 @@ async function realSearch(flightNo, arrivalDate) {
   };
 }
 
+async function realWindow(arrivalDate, from, to) {
+  const body = await callServer({ mode: 'window', date: arrivalDate, from, to });
+  if (!body.ok) return body;
+  if (!Array.isArray(body.data) || body.data.length === 0) return fail('error');
+  return {
+    ok: true,
+    data: body.data.map(fromServer),
+    meta: { truncated: body.truncated === true, skippedRows: body.skippedRows ?? 0 },
+  };
+}
+
 async function realRefresh(flightId, arrivalDate) {
   if (!flightId || !arrivalDate) return fail('error');
   const body = await callServer({ mode: 'refresh', fid: flightId, date: arrivalDate });
@@ -149,6 +172,14 @@ async function realRefresh(flightId, arrivalDate) {
 /** 편명과 도착 날짜("YYYY-MM-DD")로 항공편 목록을 찾는다. */
 export function searchFlights(flightNo, arrivalDate) {
   return isScenarioMode() ? mockSearch(flightNo, arrivalDate) : realSearch(flightNo, arrivalDate);
+}
+
+/**
+ * 편명을 모를 때 도착 날짜("YYYY-MM-DD")와 시간대("HHMM", 종료는 "2400"까지)로 항공편 목록을 찾는다.
+ * 반환 형식과 reason 은 searchFlights 와 같다. 한 번에 한 번만 부르고 다음 페이지를 자동으로 부르지 않는다.
+ */
+export function searchFlightsByWindow(arrivalDate, from, to) {
+  return isScenarioMode() ? mockWindow(arrivalDate, from, to) : realWindow(arrivalDate, from, to);
 }
 
 /**
