@@ -4,8 +4,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { travelCheckedLine } from '../public/js/domain/travelChecked.js';
 import { formatClock, formatSpoken, minutes, toMs } from '../public/js/domain/time.js';
-import { renderChips } from '../public/js/ui/components/chips.js';
-import { renderRecommendCardContent, renderTravelCheckedLine } from '../public/js/ui/components/recommendCard.js';
+import { renderRecommendCardContent } from '../public/js/ui/components/recommendCard.js';
+import { renderTimeline, renderTravelCheckedLine } from '../public/js/ui/components/routeTimeline.js';
 import { buildResultViewModel } from '../public/js/ui/screens/result.js';
 import { blockNetwork } from './helpers/blockNetwork.js';
 
@@ -136,15 +136,17 @@ test('이동 시간을 다시 확인해 성공하면 시각이 새 값으로 바
 
 // ---------- 카드 안 렌더링 ----------
 
-const card = (vm) => renderRecommendCardContent({ ...vm, chipsHtml: renderChips(vm) });
+const card = (vm) => renderRecommendCardContent({ ...vm, timelineHtml: renderTimeline(vm) });
 
-test('카드: 이동 시간 확인 줄은 근거 칩 줄과 항공편 확인 시각 줄 사이에 있고, 읽기용 문구가 따로 있다', () => {
+test('카드: 이동 시간 확인 줄은 근거 타임라인의 이동 구간 아래, 항공편 확인 시각 줄 앞에 있고, 읽기용 문구가 따로 있다', () => {
   const vm = buildResultViewModel({ flight: flightAt(toMs('2026-10-30 13:40'), NOW), drive: kakao(), buffers, now: NOW });
   const html = card(vm);
-  const chips = html.indexOf('class="chips"');
+  const timeline = html.indexOf('class="route"');
+  const leg = html.indexOf('이동 55분');
   const travel = html.indexOf('이동 시간은 18:45에 확인했어요');
+  const buffer = html.indexOf('data-chip="buffer"');
   const flightLine = html.indexOf('reco__checked');
-  assert.ok(chips >= 0 && travel > chips && flightLine > travel);
+  assert.ok(timeline >= 0 && leg > timeline && travel > leg && buffer > travel && flightLine > buffer);
   assert.ok(html.includes('이동 시간은 오후 6시 45분에 확인했어요')); // 화면 읽기용(sr-only)
   assert.ok(html.includes('13:40에 확인했어요')); // 항공편 줄은 그대로
   assert.equal(html.split('class="caption reco__travel-checked"').length - 1, 1);
