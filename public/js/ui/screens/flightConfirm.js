@@ -1,4 +1,5 @@
 // 2단계 · 항공편 확인: 찾은 항공편 중 맞는 것을 사용자가 직접 고른다. (잘못된 항공편 선택 방지)
+import { filterByOrigin, listOrigins, sortByScheduled, visibleSelection } from '../../domain/originFilter.js';
 import { dayLabel, formatClock, formatSpoken, partsKst } from '../../domain/time.js';
 import { load, save } from '../../store.js';
 import { icon } from '../components/icon.js';
@@ -46,11 +47,31 @@ function cardHtml(flight, { now, checked }) {
     </label>`;
 }
 
+/** 출발 도시 칩 줄 (시간대로 찾았고 도시가 둘 이상일 때만). 같은 선택 표시 규칙을 쓴다. */
+function originChipsHtml(origins, selected) {
+  const chip = (value, label) => `
+      <label class="choice">
+        <input class="choice__input" type="radio" name="origin" value="${escapeHtml(value)}"${value === selected ? ' checked' : ''}>
+        <span class="chip choice__body"><span>${escapeHtml(label)}</span><span class="choice__check">${icon('check')}<span class="sr-only">선택됨</span></span></span>
+      </label>`;
+  return `
+    <fieldset class="choice-group">
+      <legend class="sr-only">출발 도시</legend>
+      ${chip('', '전체')}
+      ${origins.map((origin) => chip(origin, origin)).join('')}
+    </fieldset>`;
+}
+
 export function renderFlightConfirm({ main, footer }, ctx) {
   const state = load();
-  const flights = state.search.results;
-  const selectedId = flights.some((f) => f.flightId === state.selectedFlightId) ? state.selectedFlightId : null;
+  const byWindow = state.search.mode === 'window';
+  // 시간대로 찾은 결과는 예정 도착 시각순으로 보여 준다. 같은 편명의 여러 줄도 합치지 않는다.
+  const allFlights = byWindow ? sortByScheduled(state.search.results) : state.search.results;
+  const origins = byWindow ? listOrigins(allFlights) : [];
   const now = ctx.now();
+
+  let origin = null; // 이 화면 안에서만 유지하고 저장하지 않는다.
+  let selectedId = allFlights.some((f) => f.flightId === state.selectedFlightId) ? state.selectedFlightId : null;
 
   main.innerHTML = `
     ${renderProgress(2)}
@@ -58,27 +79,42 @@ export function renderFlightConfirm({ main, footer }, ctx) {
       <h1 tabindex="-1">이 항공편이 맞나요?</h1>
       <p class="caption">맞는 항공편을 눌러서 골라 주세요.</p>
     </div>
-    <fieldset class="flight-list">
-      <legend class="sr-only">항공편 선택</legend>
-      ${flights.map((f) => cardHtml(f, { now, checked: f.flightId === selectedId })).join('')}
-    </fieldset>`;
+    ${origins.length >= 2 ? originChipsHtml(origins, '') : ''}
+    <fieldset id="flight-list" class="flight-list"></fieldset>`;
 
   footer.innerHTML = `
     <button id="continue-btn" class="btn btn--primary" type="button">이 항공편으로 계속</button>
     <button id="back-btn" class="btn btn--text" type="button">이전</button>`;
 
+  const list = main.querySelector('#flight-list');
   const continueBtn = footer.querySelector('#continue-btn');
-  continueBtn.disabled = selectedId === null;
+
+  function renderList() {
+    const visible = filterByOrigin(allFlights, origin);
+    // 고른 항공편이 필터로 가려지면 선택을 풀어, 보이지 않는 항공편으로 계속 진행하지 않게 한다.
+    selectedId = visibleSelection(visible, selectedId);
+    list.innerHTML = `
+      <legend class="sr-only">항공편 선택</legend>
+      ${visible.map((f) => cardHtml(f, { now, checked: f.flightId === selectedId })).join('')}`;
+    continueBtn.disabled = selectedId === null;
+  }
+
+  renderList();
 
   main.addEventListener('change', (event) => {
-    if (event.target.name === 'flight') continueBtn.disabled = false;
+    if (event.target.name === 'flight') {
+      selectedId = event.target.value;
+      continueBtn.disabled = false;
+    } else if (event.target.name === 'origin') {
+      origin = event.target.value === '' ? null : event.target.value;
+      renderList();
+    }
   });
 
   continueBtn.addEventListener('click', () => {
-    const chosen = main.querySelector('input[name="flight"]:checked');
-    if (!chosen) return;
+    if (selectedId === null) return;
     // 항공편을 새로 고르면 이전 항공편의 변경 기록과 안내 이력은 지운다.
-    save({ ...load(), selectedFlightId: chosen.value, change: null, lastAnnouncedChangeId: null });
+    save({ ...load(), selectedFlightId: selectedId, change: null, lastAnnouncedChangeId: null });
     ctx.navigate('origin');
   });
 

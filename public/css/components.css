@@ -184,6 +184,44 @@ h1:focus { outline: none; }
   font-size: var(--fs-body);
 }
 
+/* 찾기 방식 탭 · 출발 도시 칩 (DesignGuide 6장, 가정): 라디오는 숨기고 키보드로는 그대로 움직인다. 선택하면 Amber + Ink + 체크 */
+.choice-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.choice { position: relative; cursor: pointer; }
+
+.choice__input {
+  position: absolute;
+  opacity: 0;
+  width: 1px;
+  height: 1px;
+}
+
+.choice__check { display: none; }
+.choice__input:checked + .choice__body { background: var(--color-amber); border-color: var(--color-amber); }
+.choice__input:checked + .choice__body .choice__check { display: inline-flex; }
+
+.choice__input:focus-visible + .choice__body {
+  outline: 2px solid var(--color-ink);
+  outline-offset: 2px;
+}
+
+.choice__body { transition: background-color var(--dur-fast) var(--ease), transform var(--dur-fast) var(--ease); }
+.choice:active .choice__body { transform: scale(0.98); }
+
+/* 시간대 선택: 선택 칸 두 개를 나란히 (입력창 규칙을 그대로 쓴다) */
+.field-row { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-3); }
+select.field__input { color: var(--color-ink); }
+/* display 를 정한 요소도 hidden 이면 숨긴다 */
+.field[hidden], .field-row[hidden] { display: none; }
+
 /* 항공편 결과 카드 (선택용). 카드 전체가 하나의 선택 영역이다. */
 .flight-list {
   display: flex;
