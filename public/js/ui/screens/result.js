@@ -25,6 +25,7 @@ import { announcementFor, cardLeadSpoken, focusTargetAfterTransition } from '../
 import { TERMINAL_HOLD_MESSAGE } from '../../domain/routeNotice.js';
 import { terminalCodeOf } from '../../domain/terminal.js';
 import { createAutoRecheck } from '../../domain/autoRecheck.js';
+import { travelCheckedLine } from '../../domain/travelChecked.js';
 import { isStale, lastConfirmedAt, resolveBadge, resolveFlightView } from '../../domain/status.js';
 import {
   dayLabel, formatClock, formatClockWithDay, formatSpoken, formatSpokenWithDay, isSameDayKst,
@@ -57,8 +58,9 @@ const MESSAGES = {
  *
  * @param {boolean} [input.hasChange]  도착 정보가 바뀐 적이 있는가 → "도착 시각이 바뀌었어요" 배지 (안내 띠를 이미 본 뒤에도 배지로 남는다)
  * @param {boolean} [input.checking]   최신 정보를 확인하는 중인가
+ * @param {boolean} [input.scenarioMode]  시나리오 모드인가. 목업 이동 시간에는 "이동 시간은 N:NN에 확인했어요" 줄을 붙이지 않는다.
  */
-export function buildResultViewModel({ flight, drive, buffers, now, hasChange = false, checking = false }) {
+export function buildResultViewModel({ flight, drive, buffers, now, hasChange = false, checking = false, scenarioMode = false }) {
   const arrival = latestArrival(flight);
   const { departureMs } = recommendDeparture({
     arrival,
@@ -95,6 +97,8 @@ export function buildResultViewModel({ flight, drive, buffers, now, hasChange = 
     // 서버가 인천공항 API 를 부른 시각. 표시에만 쓰고 오래됨 판단에는 쓰지 않는다.
     checkedText: formatClock(flight.fetchedAt),
     checkedSpoken: formatSpoken(flight.fetchedAt),
+    // 이동 시간을 조회한 시각(기기 시계). 항공편 확인 시각과 비교하지 않고, 오래됨 판단에도 쓰지 않는다. 숨기는 경우는 null. (domain/travelChecked.js)
+    travelChecked: travelCheckedLine(drive, { scenarioMode }),
   };
 }
 
@@ -166,7 +170,9 @@ export function renderResult({ main }, ctx) {
   const actionsHost = main.querySelector('#actions-host');
   const getBufferChip = () => main.querySelector('[data-chip="buffer"]');
 
-  const makeVm = () => buildResultViewModel({ flight, drive, buffers, now: ctx.now(), hasChange: change !== null, checking });
+  const makeVm = () => buildResultViewModel({
+    flight, drive, buffers, now: ctx.now(), hasChange: change !== null, checking, scenarioMode: isScenarioMode(),
+  });
 
   function openSheet() {
     openBufferSheet({

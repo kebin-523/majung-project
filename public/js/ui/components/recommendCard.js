@@ -1,5 +1,5 @@
 // 추천 출발 시각 카드 (브랜드 핵심 컴포넌트).
-// 구성 순서: 항적선 → 말풍선 → 추천 출발 시각(+"출발") → 핵심 안내 문장 → 상태 배지 → 근거 칩 → 확인 시각·예상 안내
+// 구성 순서: 항적선 → 말풍선 → 추천 출발 시각(+"출발") → 핵심 안내 문장 → 상태 배지 → 근거 칩 → (이동 시간 확인 줄) → 확인 시각·예상 안내
 import { renderBadge } from './badge.js';
 import { icon } from './icon.js';
 
@@ -36,6 +36,20 @@ export function renderCheckedLine(vm) {
 }
 
 /**
+ * 이동 시간 확인 줄: 근거 칩 줄과 항공편 확인 시각 줄 사이의 한 줄. "이동 시간은 18:45에 확인했어요" (DesignGuide §6 초안)
+ * 보여 주지 않는 경우(vm.travelChecked 가 없음)는 빈 문자열이다. 문구와 숨김 조건은 domain/travelChecked.js 가 정한다.
+ * 카드를 다시 그릴 때(이동 시간을 다시 확인해 성공한 뒤 포함) 새 값으로 바뀐다. 항공편 확인 시각 줄과는 따로이고 서로 비교하지 않는다.
+ *
+ * @param {{travelChecked?: {sentence: string, spokenSentence: string} | null}} vm
+ */
+export function renderTravelCheckedLine(vm) {
+  const line = vm.travelChecked;
+  if (!line) return '';
+  return `
+      <p class="caption reco__travel-checked"><span aria-hidden="true">${line.sentence}</span><span class="sr-only">${line.spokenSentence}</span></p>`;
+}
+
+/**
  * 카드 안쪽 내용. 값이 바뀔 때는 바깥 aria-live 영역(<section class="reco" aria-live="polite">)은 그대로 두고
  * 이 내용만 갈아 끼워야 화면 읽기 프로그램이 변경을 알려 준다. (바깥 영역은 screens/result.js가 만든다.)
  *
@@ -69,6 +83,6 @@ export function renderRecommendCardContent(vm) {
         <span class="sr-only">${day}${vm.timeSpoken} 출발을 추천해요</span>
       </p>
       <div>${renderBadge(vm.badgeKey)}</div>
-      ${vm.chipsHtml}
+      ${vm.chipsHtml}${renderTravelCheckedLine(vm)}
       <p class="caption reco__checked">${renderCheckedLine(vm)}</p>`;
 }
