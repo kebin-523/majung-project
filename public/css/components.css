@@ -782,31 +782,63 @@ button.chip:active { transform: scale(0.98); }
 
 /* 변경 안내 띠 (가이드 6장): Peach 배경, 왼쪽 Dusk Blue 4px 선 + 시계 아이콘, 글자 Dusk Blue */
 
+/* 변경 안내 = 비행기 티켓 (DesignGuide 6장, 가정): 위 구역(바뀐 항목) · 점선 절취선(양옆 홈) · 쪽지(안내 문장). 도착 정보 변경은 불안하지 않게 Dusk Blue 로 알린다 */
 .change-banner {
   display: flex;
-  align-items: flex-start;
-  gap: var(--space-3);
-  padding: var(--space-3) var(--space-4) var(--space-3) var(--space-3);
-  border-left: 4px solid var(--color-dusk-blue);
+  flex-direction: column;
   border-radius: var(--radius-card);
   background: var(--color-peach);
   color: var(--color-dusk-blue);
 }
 
-.change-banner__body { display: flex; flex-direction: column; gap: var(--space-2); min-width: 0; }
+.change-banner__top { padding: var(--space-3) var(--space-4); }
 
 .change-banner__rows {
   display: flex;
   flex-direction: column;
-  gap: var(--space-1);
+  gap: var(--space-2);
   margin: 0;
   padding: 0;
   list-style: none;
 }
 
+/* 한 줄: 왼쪽 라벨(14px SemiBold), 오른쪽 "이전(취소선) → 새 값". 새 값은 카드의 시각과 같은 20px SemiBold */
+.change-banner__row { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-3); }
+.change-banner__label { font-size: var(--fs-caption); line-height: var(--lh-caption); font-weight: 600; }
+.change-banner__value { display: inline-flex; align-items: baseline; gap: var(--space-2); white-space: nowrap; }
+
 /* 변경 전 값은 취소선, 새 값은 굵게. 화살표(→)와 문구도 함께 쓴다 */
-.change-banner__from { text-decoration: line-through; font-weight: 400; }
-.change-banner__lead { font-weight: 600; }
+.change-banner__from,
+.change-banner__arrow { font-size: var(--fs-caption); line-height: var(--lh-caption); font-weight: 400; }
+.change-banner__from { text-decoration: line-through; }
+.change-banner__value strong { font-size: var(--fs-h3); line-height: var(--lh-h3); font-weight: 600; }
+
+/* 쪽지: 점선 절취선 아래. 선 양옆을 페이지 배경(Cream)색 원으로 파낸 것처럼 보이게 한다 (항공편 결과 카드와 같은 규칙) */
+.change-banner__stub {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-3) var(--space-4);
+  border-top: 1px dashed var(--color-warm-gray);
+}
+
+.change-banner__stub::before,
+.change-banner__stub::after {
+  content: '';
+  position: absolute;
+  top: -9px;
+  width: var(--space-3);
+  height: var(--space-3);
+  border-radius: 50%;
+  background: var(--color-cream);
+}
+
+.change-banner__stub::before { left: calc(var(--space-2) * -1); }
+.change-banner__stub::after { right: calc(var(--space-2) * -1); }
+
+.change-banner__lead { display: flex; align-items: flex-start; gap: var(--space-2); font-weight: 600; }
+.change-banner__lead .icon { flex: none; margin-top: var(--space-1); }
 .change-banner__soft { color: var(--color-dusk-blue); }
 
 /* 제목 아래 보조 안내 묶음 */
