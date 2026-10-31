@@ -6,37 +6,51 @@ import { icon } from '../components/icon.js';
 import { renderProgress } from '../components/progress.js';
 import { escapeHtml } from '../html.js';
 
-function cardHtml(flight, { now, checked }) {
-  // 도착한 편은 변경 시각이 실제 도착 시각처럼 보일 수 있어, 원래 예정만 보여 준다. (DesignGuide 12장)
+/**
+ * 항공편 결과 카드 한 장. 비행기 티켓 모양이다. (DesignGuide 6장 "항공편 결과 카드", 가정)
+ *   위 구역:  편명 · 항공사 ──────── 도착 예정 시각   (가장 중요한 정보)
+ *   ┄┄┄ 절취선(양옆이 파인 홈) ┄┄┄
+ *   아래 칸:  출발(도시) ──────── 도착 날짜            (라벨 14px + 값 16px)
+ * 도착한 편은 변경 시각이 실제 도착 시각처럼 보일 수 있어 원래 예정만 보여 준다. (DesignGuide 12장)
+ * 출발 도시·항공사는 API가 제공하는 편만 보이고, 값이 없는 항목은 만들지 않는다.
+ */
+export function cardHtml(flight, { now, checked }) {
   const changed = !flight.landed && flight.changed != null;
   const arrival = changed ? flight.changed : flight.scheduled;
   const label = changed ? '변경된 도착 예정' : '도착 예정';
   // 변경 전후는 색뿐 아니라 취소선 + 화살표 + 문구로 구분한다. (변경 안내 띠와 같은 규칙, DesignGuide 7장)
   const changedFrom = changed ? `<del class="flight-card__was">${formatClock(flight.scheduled)}</del><span class="flight-card__arrow">→</span>` : '';
 
-  // 출발 도시·항공사는 API가 제공하는지 확인 전이라, 값이 있을 때만 보여 준다.
-  const city = flight.departureCity ? `<span class="flight-card__city">${escapeHtml(flight.departureCity)} 출발</span>` : '';
   const airline = flight.airline ? `<span class="flight-card__meta">${escapeHtml(flight.airline)}</span>` : '';
+  const city = flight.departureCity
+    ? `<span class="flight-card__field"><span class="flight-card__meta">출발</span><span class="flight-card__value">${escapeHtml(flight.departureCity)}</span></span>`
+    : '';
 
-  // 정보 위계 (DesignGuide 6장 "항공편 결과 카드"): 편명 > 도착 예정 시각 > 출발 도시 > 항공사·날짜
   return `
     <label class="flight-card">
       <input class="flight-card__input" type="radio" name="flight" value="${escapeHtml(flight.flightId)}"${checked ? ' checked' : ''}>
       <span class="flight-card__body">
-        <span class="flight-card__head">
-          <span class="flight-card__no">${escapeHtml(flight.flightNo)}</span>
-          <span class="flight-card__check">${icon('check', 24)}<span class="sr-only">선택됨</span></span>
-        </span>
-        <span class="flight-card__detail">
-          <span class="flight-card__route">${city}${airline}</span>
+        <span class="flight-card__top">
+          <span class="flight-card__id">
+            <span class="flight-card__idrow">
+              <span class="flight-card__no">${escapeHtml(flight.flightNo)}</span>
+              <span class="flight-card__check">${icon('check', 24)}<span class="sr-only">선택됨</span></span>
+            </span>
+            ${airline}
+          </span>
           <span class="flight-card__time">
             <span class="flight-card__meta" aria-hidden="true">${label}</span>
             <span class="flight-card__clock tabular" aria-hidden="true">${changedFrom}<span>${formatClock(arrival)}</span></span>
             <span class="sr-only">${label} ${formatSpoken(arrival)}${changed ? `, 원래 도착 예정 ${formatSpoken(flight.scheduled)}` : ''}</span>
-            <span class="flight-card__meta tabular">${formatDateLabel(arrival, now)}</span>
           </span>
         </span>
-        ${flight.landed ? '<span class="flight-card__meta">이 항공편은 이미 도착했어요.</span>' : ''}
+        <span class="flight-card__stub">
+          <span class="flight-card__fields">
+            ${city}
+            <span class="flight-card__field flight-card__field--end"><span class="flight-card__meta">도착 날짜</span><span class="flight-card__value tabular">${formatDateLabel(arrival, now)}</span></span>
+          </span>
+          ${flight.landed ? '<span class="flight-card__meta">이 항공편은 이미 도착했어요.</span>' : ''}
+        </span>
       </span>
     </label>`;
 }

@@ -330,12 +330,11 @@ select.field__input { color: var(--color-ink); }
   height: 1px;
 }
 
+/* 항공편 결과 카드 = 비행기 티켓 (DesignGuide 6장, 가정): 위 구역 · 점선 절취선(양옆 홈) · 아래 칸 */
 .flight-card__body {
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
   min-height: var(--size-touch-min);
-  padding: var(--space-3) var(--space-4);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-card);
   background: var(--color-peach);
@@ -345,24 +344,21 @@ select.field__input { color: var(--color-ink); }
 
 .flight-card:active .flight-card__body { transform: scale(0.98); }
 
-/* 정보 위계: 편명(24 Bold) > 도착 예정 시각(20 SemiBold) > 출발 도시(16) > 항공사·날짜(14 Warm Gray). 왼쪽은 "어디서 오는 편", 오른쪽은 "언제 도착" */
-.flight-card__head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); }
-
-.flight-card__no { font-size: var(--fs-h2); line-height: var(--lh-h2); font-weight: 700; }
-
-.flight-card__detail {
-  display: grid;
-  grid-template-columns: 1fr auto;
-  align-items: start;
+/* 위 구역: 왼쪽 편명(24px Bold)·항공사, 오른쪽 도착 예정 시각(20px SemiBold). 선택 체크는 편명 옆 */
+.flight-card__top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
   gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
 }
 
-.flight-card__route,
-.flight-card__time { display: flex; flex-direction: column; gap: var(--space-1); }
-
+.flight-card__id,
+.flight-card__time { display: flex; flex-direction: column; min-width: 0; }
+.flight-card__idrow { display: flex; align-items: center; gap: var(--space-2); }
 .flight-card__time { align-items: flex-end; text-align: right; }
 
-.flight-card__city { font-size: var(--fs-body); line-height: var(--lh-body); }
+.flight-card__no { font-size: var(--fs-h2); line-height: var(--lh-h2); font-weight: 700; }
 
 .flight-card__clock {
   display: inline-flex;
@@ -389,11 +385,40 @@ select.field__input { color: var(--color-ink); }
   color: var(--color-warm-gray);
 }
 
+/* 아래 칸: 점선 절취선 아래. 선 양옆을 페이지 배경(Cream)색 원으로 파낸 것처럼 보이게 한다 */
+.flight-card__stub {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  border-top: 1px dashed var(--color-warm-gray);
+}
+
+.flight-card__stub::before,
+.flight-card__stub::after {
+  content: '';
+  position: absolute;
+  top: -9px;
+  width: var(--space-3);
+  height: var(--space-3);
+  border-radius: 50%;
+  background: var(--color-cream);
+}
+
+.flight-card__stub::before { left: calc(var(--space-2) * -1); }
+.flight-card__stub::after { right: calc(var(--space-2) * -1); }
+
+.flight-card__fields { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-3); }
+.flight-card__field { display: flex; flex-direction: column; min-width: 0; }
+.flight-card__field--end { margin-left: auto; align-items: flex-end; text-align: right; }
+.flight-card__value { font-size: var(--fs-body); line-height: var(--lh-body); font-weight: 600; }
+
 /* 선택되면 Amber 배경 + Ink 글자 + 체크 아이콘 (색만으로 구분하지 않는다) */
 .flight-card__input:checked + .flight-card__body { background: var(--color-amber); border-color: var(--color-amber); }
 .flight-card__input:checked + .flight-card__body .flight-card__meta { color: var(--color-ink); }
 
-.flight-card__check { visibility: hidden; }
+.flight-card__check { visibility: hidden; display: inline-flex; }
 .flight-card__input:checked + .flight-card__body .flight-card__check { visibility: visible; }
 
 .flight-card__input:focus-visible + .flight-card__body {
