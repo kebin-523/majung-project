@@ -8,6 +8,7 @@ import { renderFlightConfirm } from './ui/screens/flightConfirm.js';
 import { renderFlightSearch } from './ui/screens/flightSearch.js';
 import { renderOriginSetup } from './ui/screens/originSetup.js';
 import { renderResult } from './ui/screens/result.js';
+import { initSideBackground } from './ui/components/sideBackground.js';
 
 const header = document.querySelector('.app__header');
 const main = document.querySelector('.app__main');
@@ -99,3 +100,4 @@ function renderMockBadge() {
 renderMockBadge();
 window.addEventListener('hashchange', render);
 render();
+initSideBackground(); // 양옆 모션 배경 (768px 이상에서만 만든다)
