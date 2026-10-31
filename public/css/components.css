@@ -259,10 +259,10 @@ h1:focus { outline: none; }
 .date-panel__day:active:not(:disabled) { transform: scale(0.96); }
 .date-panel__day--today { background: var(--color-peach); }
 
-/* 고른 날: Amber 원 + Ink 글자(Bold) + Ink 테두리 (색만으로 구분하지 않는다) */
+/* 고른 날: Amber 원 + Ink 글자(Bold) + Sunset Deep 테두리 (색만으로 구분하지 않는다) */
 .date-panel__day--selected {
   background: var(--color-amber);
-  border-color: var(--color-ink);
+  border-color: var(--color-sunset-deep);
   font-weight: 700;
 }
 
