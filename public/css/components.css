@@ -332,9 +332,8 @@ select.field__input { color: var(--color-ink); }
 
 .flight-card__body {
   display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: var(--space-3);
+  flex-direction: column;
+  gap: var(--space-2);
   min-height: var(--size-touch-min);
   padding: var(--space-3) var(--space-4);
   border: 1px solid var(--color-border);
@@ -346,9 +345,43 @@ select.field__input { color: var(--color-ink); }
 
 .flight-card:active .flight-card__body { transform: scale(0.98); }
 
-.flight-card__main { display: flex; flex-direction: column; gap: var(--space-1); }
+/* 정보 위계: 편명(24 Bold) > 도착 예정 시각(20 SemiBold) > 출발 도시(16) > 항공사·날짜(14 Warm Gray). 왼쪽은 "어디서 오는 편", 오른쪽은 "언제 도착" */
+.flight-card__head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); }
 
-.flight-card__no { font-size: var(--fs-h3); line-height: var(--lh-h3); font-weight: 600; }
+.flight-card__no { font-size: var(--fs-h2); line-height: var(--lh-h2); font-weight: 700; }
+
+.flight-card__detail {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: start;
+  gap: var(--space-3);
+}
+
+.flight-card__route,
+.flight-card__time { display: flex; flex-direction: column; gap: var(--space-1); }
+
+.flight-card__time { align-items: flex-end; text-align: right; }
+
+.flight-card__city { font-size: var(--fs-body); line-height: var(--lh-body); }
+
+.flight-card__clock {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  font-size: var(--fs-h3);
+  line-height: var(--lh-h3);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* 변경된 도착 예정: 이전 시각은 취소선 + Dusk Blue 14px, 새 시각은 그대로 20px SemiBold. (Dusk Blue on Peach 7.20, on Amber 약 4.8) */
+.flight-card__was,
+.flight-card__arrow {
+  font-size: var(--fs-caption);
+  line-height: var(--lh-caption);
+  font-weight: 400;
+  color: var(--color-dusk-blue);
+}
 
 .flight-card__meta {
   font-size: var(--fs-caption);

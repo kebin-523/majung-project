@@ -6,11 +6,6 @@ import { icon } from '../components/icon.js';
 import { renderProgress } from '../components/progress.js';
 import { escapeHtml } from '../html.js';
 
-/** 화면에는 24시간제, 화면 읽기 프로그램에는 "오후 5시 30분"으로 읽히게 한다. */
-function timeLine(label, ms) {
-  return `<span aria-hidden="true">${label} ${formatClock(ms)}</span><span class="sr-only">${label} ${formatSpoken(ms)}</span>`;
-}
-
 /** "오늘 · 10월 29일" / "10월 31일" (라벨이 이미 날짜면 한 번만) */
 function dateText(ms, now) {
   const { m, d } = partsKst(ms);
@@ -23,36 +18,43 @@ function cardHtml(flight, { now, checked }) {
   // 도착한 편은 변경 시각이 실제 도착 시각처럼 보일 수 있어, 원래 예정만 보여 준다. (DesignGuide 12장)
   const changed = !flight.landed && flight.changed != null;
   const arrival = changed ? flight.changed : flight.scheduled;
+  const label = changed ? '변경된 도착 예정' : '도착 예정';
+  // 변경 전후는 색뿐 아니라 취소선 + 화살표 + 문구로 구분한다. (변경 안내 띠와 같은 규칙, DesignGuide 7장)
+  const changedFrom = changed ? `<del class="flight-card__was">${formatClock(flight.scheduled)}</del><span class="flight-card__arrow">→</span>` : '';
 
   // 출발 도시·항공사는 API가 제공하는지 확인 전이라, 값이 있을 때만 보여 준다.
-  const origin = [flight.departureCity && `${flight.departureCity} 출발`, flight.airline]
-    .filter(Boolean)
-    .map(escapeHtml)
-    .join(' · ');
+  const city = flight.departureCity ? `<span class="flight-card__city">${escapeHtml(flight.departureCity)} 출발</span>` : '';
+  const airline = flight.airline ? `<span class="flight-card__meta">${escapeHtml(flight.airline)}</span>` : '';
 
+  // 정보 위계 (DesignGuide 6장 "항공편 결과 카드"): 편명 > 도착 예정 시각 > 출발 도시 > 항공사·날짜
   return `
     <label class="flight-card">
       <input class="flight-card__input" type="radio" name="flight" value="${escapeHtml(flight.flightId)}"${checked ? ' checked' : ''}>
       <span class="flight-card__body">
-        <span class="flight-card__main">
+        <span class="flight-card__head">
           <span class="flight-card__no">${escapeHtml(flight.flightNo)}</span>
-          <span class="flight-card__meta tabular">${dateText(arrival, now)}</span>
-          <span class="flight-card__meta tabular">${timeLine(changed ? '변경된 도착 예정' : '도착 예정', arrival)}</span>
-          ${changed ? `<span class="flight-card__meta tabular">${timeLine('원래 도착 예정', flight.scheduled)}</span>` : ''}
-          ${origin ? `<span class="flight-card__meta">${origin}</span>` : ''}
-          ${flight.landed ? '<span class="flight-card__meta">이 항공편은 이미 도착했어요.</span>' : ''}
+          <span class="flight-card__check">${icon('check', 24)}<span class="sr-only">선택됨</span></span>
         </span>
-        <span class="flight-card__check">${icon('check', 24)}<span class="sr-only">선택됨</span></span>
+        <span class="flight-card__detail">
+          <span class="flight-card__route">${city}${airline}</span>
+          <span class="flight-card__time">
+            <span class="flight-card__meta" aria-hidden="true">${label}</span>
+            <span class="flight-card__clock tabular" aria-hidden="true">${changedFrom}<span>${formatClock(arrival)}</span></span>
+            <span class="sr-only">${label} ${formatSpoken(arrival)}${changed ? `, 원래 도착 예정 ${formatSpoken(flight.scheduled)}` : ''}</span>
+            <span class="flight-card__meta tabular">${dateText(arrival, now)}</span>
+          </span>
+        </span>
+        ${flight.landed ? '<span class="flight-card__meta">이 항공편은 이미 도착했어요.</span>' : ''}
       </span>
     </label>`;
 }
 
-/** 출발 도시 칩 줄 (시간대로 찾았고 도시가 둘 이상일 때만). 같은 선택 표시 규칙을 쓴다. */
+/** 출발 도시 칩 줄 (시간대로 찾았고 도시가 둘 이상일 때만). 체크 아이콘 없이 선택한 칩의 색만 바뀐다. (라디오라 선택 상태는 화면 읽기 프로그램에 전해진다) */
 function originChipsHtml(origins, selected) {
   const chip = (value, label) => `
       <label class="choice">
         <input class="choice__input" type="radio" name="origin" value="${escapeHtml(value)}"${value === selected ? ' checked' : ''}>
-        <span class="chip choice__body"><span>${escapeHtml(label)}</span><span class="choice__check">${icon('check')}<span class="sr-only">선택됨</span></span></span>
+        <span class="chip choice__body">${escapeHtml(label)}</span>
       </label>`;
   return `
     <fieldset class="choice-group">
