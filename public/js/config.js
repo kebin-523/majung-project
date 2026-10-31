@@ -13,9 +13,10 @@ export const BUFFER_MAX_MIN = 120;
 export const ADDRESS_SEARCH_DEBOUNCE_MS = 400;
 export const ADDRESS_MIN_QUERY_LENGTH = 2;
 
-// 주소 검색·이동 시간 어댑터가 아직 목업인가. 상단 표시에 쓴다. (모드는 clock.js 참고)
-// 카카오 API 를 연결해 둘 다 실제가 되면 false 로 바꾼다. (그러면 실제 모드의 상단 표시가 사라진다)
-export const ADDRESS_ROUTE_IS_MOCK = true;
+// 주소 검색·이동 시간이 아직 목업인가. 상단 표시에만 쓴다. (모드는 clock.js, 문구는 domain/mockBadge.js)
+// 주소 검색(카카오 로컬)과 이동 시간(카카오모빌리티 길찾기)을 실제로 연결해 브라우저에서 확인했으므로 false 다. (2026-10-31, README "검증 현황")
+// 그래서 실제 모드(?scenario= 가 없을 때)의 상단 표시는 없고, 시나리오 모드는 "목업 데이터" 그대로다.
+export const ADDRESS_ROUTE_IS_MOCK = false;
 
 // 상태 판단 기준 (가정, 갱신 주기 확정 후 조정)
 export const SOON_THRESHOLD_MIN = 60; // 추천 출발 60분 전부터 "곧 출발"

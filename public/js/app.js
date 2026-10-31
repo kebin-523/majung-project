@@ -1,6 +1,7 @@
 // 진입점: 해시 라우팅(#/flight, #/confirm, #/origin, #/result)과 화면 교체.
 import { load } from './store.js';
 import { ADDRESS_ROUTE_IS_MOCK } from './config.js';
+import { mockBadgeText } from './domain/mockBadge.js';
 import { clockNow, clockToday, isScenarioMode } from './clock.js';
 import { getScenario } from './mock/scenarios.js';
 import { renderFlightConfirm } from './ui/screens/flightConfirm.js';
@@ -81,23 +82,18 @@ function render() {
   firstRender = false;
 }
 
-// 상단 표시 (DesignGuide 7장 "구현 중 추가한 문구"의 "상단 표시")
+// 상단 표시 (DesignGuide 7장 "구현 중 추가한 문구"의 "상단 표시"). 문구는 domain/mockBadge.js 가 정한다.
 //   시나리오 모드(전부 목업): "목업 데이터" (시나리오 이름이 normal 이 아니면 이름을 덧붙인다)
-//   항공편은 실제, 주소·이동 시간은 목업: "주소·이동 시간은 예시"
-//   모두 실제: 표시 없음
+//   실제 모드에서 항공편·장소·이동 시간이 모두 실제: 표시 없음
 function renderMockBadge() {
   const badge = header.querySelector('.mock-badge');
-  if (isScenarioMode()) {
-    const scenario = getScenario();
-    badge.textContent = scenario === 'normal' ? '목업 데이터' : `목업 · ${scenario}`;
-  } else if (ADDRESS_ROUTE_IS_MOCK) {
-    badge.textContent = '주소·이동 시간은 예시';
-  } else {
-    badge.textContent = '';
-    badge.hidden = true;
-    return;
-  }
-  badge.hidden = false;
+  const text = mockBadgeText({
+    scenarioMode: isScenarioMode(),
+    scenario: getScenario(),
+    addressRouteIsMock: ADDRESS_ROUTE_IS_MOCK,
+  });
+  badge.textContent = text ?? '';
+  badge.hidden = text === null;
 }
 
 renderMockBadge();

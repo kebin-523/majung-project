@@ -16,7 +16,7 @@
 //             "잠시 뒤"를 보려고 데모 시계가 11배 빨리 흐른다. (SCENARIO_SPEED) 그래서 1분 뒤 첫 상태 점검에서 응답을 받은 지 10분이 지난 것으로 보여 자동 재확인이 일어난다.
 //
 // 이 시나리오가 주소창에 있으면 "시나리오 모드"다. 항공편도 목업을 쓰고 데모 시계를 쓴다. (clock.js 참고)
-// 실제 모드(?scenario= 가 없을 때)에서는 항공편에 이 시나리오를 쓰지 않는다. 주소·이동 시간은 아직 목업이다.
+// 실제 모드(?scenario= 가 없을 때)에서는 항공편·장소·이동 시간 모두 이 시나리오를 쓰지 않고 서버 함수로 조회한 실제 값을 쓴다.
 import { partsKst, toMs } from '../domain/time.js';
 
 export const SCENARIOS = ['normal', 'changed', 'stale', 'fail', 'notfound', 'routefail', 'passed', 'recheckfail', 'landed', 'touchdown', 'unknown', 'later-touchdown', 'later-arrived', 'later-unknown'];
