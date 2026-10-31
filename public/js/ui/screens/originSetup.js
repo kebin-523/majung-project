@@ -2,7 +2,10 @@
 import { getDriveTime } from '../../adapters/routeAdapter.js';
 import { searchAddress } from '../../adapters/placeAdapter.js';
 import { ADDRESS_MIN_QUERY_LENGTH, ADDRESS_SEARCH_DEBOUNCE_MS } from '../../config.js';
+import { isScenarioMode } from '../../clock.js';
 import { createPlaceSearch } from '../../domain/placeSearch.js';
+import { NO_ROUTE_MESSAGE, routeNoticeKind } from '../../domain/routeNotice.js';
+import { terminalCodeOf } from '../../domain/terminal.js';
 import { load, save } from '../../store.js';
 import { icon } from '../components/icon.js';
 import { renderProgress } from '../components/progress.js';
@@ -15,6 +18,7 @@ const MESSAGES = {
   searchError: '지금은 주소를 검색하지 못했어요. 잠시 후 다시 시도해 주세요.',
   routeLoading: '이동 시간을 확인하고 있어요.',
   routeError: '이동 시간을 불러오지 못해서 추천 시각을 계산하지 못했어요.',
+  noRoute: NO_ROUTE_MESSAGE,
 };
 
 function rowHtml(place, checked) {
@@ -42,7 +46,7 @@ export function renderOriginSetup({ main, footer }, ctx) {
     ${renderProgress(3)}
     <div class="heading-group">
       <h1 tabindex="-1">어디서 출발하시나요?</h1>
-      <p class="caption privacy">${icon('pin')}<span>입력한 장소는 검색을 위해 카카오 서비스에 전달돼요. 마중은 이 장소를 저장하지 않고, 탭을 닫으면 이 브라우저에서도 지워져요.</span></p>
+      <p class="caption privacy">${icon('pin')}<span>입력한 장소는 검색과 이동 시간 계산을 위해 카카오 서비스에 전달돼요. 마중은 이 장소를 저장하지 않고, 탭을 닫으면 이 브라우저에서도 지워져요.</span></p>
     </div>
     <form id="place-form" class="form" role="search" novalidate>
       <div class="field">
@@ -89,6 +93,12 @@ export function renderOriginSetup({ main, footer }, ctx) {
       routeNotice.innerHTML = '';
     } else if (kind === 'loading') {
       routeNotice.innerHTML = `<p class="caption">${MESSAGES.routeLoading}</p>`;
+    } else if (kind === 'noRoute') {
+      // 경로 없음은 다시 시도해도 같으므로 "다시 시도" 없이 다른 출발지를 고르게 한다.
+      routeNotice.innerHTML = `
+        <div class="notice">
+          <p class="notice__text">${icon('info')}<span>${MESSAGES.noRoute}</span></p>
+        </div>`;
     } else {
       routeNotice.innerHTML = `
         <div class="notice">
@@ -128,17 +138,28 @@ export function renderOriginSetup({ main, footer }, ctx) {
     const place = places.find((p) => p.id === selectedId);
     if (!place || busy) return;
 
+    // 실제 모드에서 도착 터미널을 모르면(없거나 P02) 서버를 부르지 않는다. 출발지만 저장하고, 추천 시각 화면이 계산 보류 안내를 보여 준다.
+    // drive 의 빈 자리표시 값은 추천 시각 화면으로 가는 조건(app.js)을 채우려는 것이고, 이동 시간으로 쓰이지 않는다.
+    const state = load();
+    const flight = state.search?.results?.find((f) => f.flightId === state.selectedFlightId);
+    const terminal = terminalCodeOf(flight);
+    if (!isScenarioMode() && terminal === null) {
+      save({ ...state, origin: place, drive: { minutes: null, source: 'none' } });
+      ctx.navigate('result');
+      return;
+    }
+
     busy = true;
     continueBtn.disabled = true;
     showRouteNotice('loading');
-    const result = await getDriveTime(place);
+    const result = await getDriveTime(place, { terminal });
     busy = false;
 
     if (!form.isConnected) return; // 응답을 기다리는 사이 다른 화면으로 이동했다.
     continueBtn.disabled = false;
 
     if (!result.ok) {
-      showRouteNotice('error');
+      showRouteNotice(routeNoticeKind(result.reason));
       return;
     }
 

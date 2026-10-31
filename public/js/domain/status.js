@@ -1,5 +1,6 @@
 // 상태 배지 결정. 여러 상태가 겹치면 config.js의 BADGE_PRIORITY 순서로 하나만 고른다.
 import { BADGE_PRIORITY, SOON_THRESHOLD_MIN, STALE_AFTER_MIN } from '../config.js';
+import { terminalCodeOf } from './terminal.js';
 import { minutes, toMs } from './time.js';
 
 /**
@@ -68,12 +69,16 @@ export function flightNoticeKind({ status, landed } = {}) {
  *  - screen 'card'    추천 카드. 착륙(touchdown)이면 touchdown 이 true 이고 말풍선만 바뀐다.
  *  - screen 'arrived' 도착 안내 상자. 추천 시각을 계산·표시하지 않는다.
  *  - screen 'unknown' 운항 상태 확인 필요 안내 상자. 추천 시각을 계산·표시하지 않는다.
- * @param {{ status?: string, landed?: boolean }} flight
- * @returns {{ screen: 'card'|'arrived'|'unknown', touchdown: boolean }}
+ *  - screen 'terminal' 도착 터미널을 몰라(없거나 P02) 이동 시간을 계산하지 못하는 안내 상자. options.requiresTerminal 일 때만 나온다.
+ *    도착·운항 상태 확인 필요 안내가 먼저이고(그 편들은 이동 시간이 필요 없다), 시나리오 모드(목업 항공편에는 터미널이 없다)는 requiresTerminal 을 켜지 않는다.
+ * @param {{ status?: string, landed?: boolean, terminal?: { code?: string } | null }} flight
+ * @param {{ requiresTerminal?: boolean }} [options]
+ * @returns {{ screen: 'card'|'arrived'|'unknown'|'terminal', touchdown: boolean }}
  */
-export function resolveFlightView(flight) {
+export function resolveFlightView(flight, { requiresTerminal = false } = {}) {
   const notice = flightNoticeKind(flight);
   if (notice) return { screen: notice, touchdown: false };
+  if (requiresTerminal && terminalCodeOf(flight) === null) return { screen: 'terminal', touchdown: false };
   return { screen: 'card', touchdown: flight?.status === 'touchdown' };
 }
 

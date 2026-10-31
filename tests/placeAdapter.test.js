@@ -148,7 +148,9 @@ test('클라이언트 콘솔에 검색어를 남기지 않는다 (성공·실패
   assert.ok(logged.every((line) => !line.includes(secret)));
 });
 
-test('이동 시간: 목업 id 는 기존 값, 목업에 없는 새 장소(카카오 id)는 고정 예시 값과 source: mock', async () => {
+test('이동 시간(시나리오 모드): 목업 id 는 기존 값, 목업에 없는 새 장소는 고정 예시 값과 source: mock', async () => {
+  // 실제 모드에서는 이동 시간 어댑터가 서버 함수(/api/route)를 부르고 고정 예시 값을 쓰지 않는다. (tests/routeAdapter.test.js)
+  globalThis.location = { search: '?scenario=normal' };
   const known = await getDriveTime({ id: 'p-gangnam' });
   assert.equal(known.data.minutes, MOCK_DRIVE['p-gangnam'].minutes);
 

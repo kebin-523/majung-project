@@ -4,9 +4,12 @@
 // 착륙 말풍선은 카드 안에서 바뀌므로 카드의 기존 aria-live 영역이 이미 알린다.
 // 문장은 DesignGuide 의 기존 문장을 그대로 쓴다.
 
+import { TERMINAL_HOLD_MESSAGE } from './routeNotice.js';
+
 export const ANNOUNCEMENTS = Object.freeze({
   arrived: '이 항공편은 이미 도착했어요.',
   unknown: '이 항공편의 운항 상태를 확인해 주세요.',
+  terminal: TERMINAL_HOLD_MESSAGE, // 도착 터미널을 몰라 이동 시간을 계산하지 못함 (DesignGuide 초안, 가정)
 });
 
 /** 추천 카드의 핵심 안내 문장을 화면 읽기용으로: "내일 오후 5시 10분 출발을 추천해요" */
