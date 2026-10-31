@@ -10,12 +10,14 @@
 ## 실행 방법
 
 ```bash
-npm start        # http://localhost:5173 (Python 3.7 이상의 http.server로 public/ 폴더를 제공)
+npm start        # http://localhost:5173 (Python 3.7 이상의 http.server로 public/ 폴더를 제공. 서버 함수가 없어 ?scenario= 목업 모드에서만 동작)
+npm run dev      # http://127.0.0.1:5173 (public/ + 서버 함수 /api/flights·places·route 를 .env 의 키로 실제 API에 연결)
 npm test         # 계산·변경 감지·상태 판단 단위 테스트 (Node 20 이상, node:test)
 ```
 
 - ES 모듈을 쓰기 때문에 `public/index.html`을 더블클릭(`file://`)해서는 동작하지 않습니다. 로컬 서버로 열어야 합니다.
-- Python이 없다면 아무 정적 파일 서버(예: VS Code Live Server)로 `public/` 폴더를 서버의 루트로 열면 됩니다.
+- Python이 없다면 아무 정적 파일 서버(예: VS Code Live Server)로 `public/` 폴더를 서버의 루트로 열면 됩니다. 단, **정적 서버에는 서버 함수가 없어 실제 모드(주소에 `?scenario=`가 없음)의 항공편 조회가 "지금은 항공편 정보를 가져오지 못했어요"로 실패합니다.** 실제 데이터를 보려면 `npm run dev`(Node 20.6 이상)를 쓰세요.
+- `npm run dev`는 `scripts/dev-server.mjs`가 `netlify/functions/*.mjs`를 그대로 불러 각 함수의 `config.path`에 연결합니다. 키는 `.env`(Git에 올라가지 않음)에서만 읽고 출력하지 않으며, 이 컴퓨터(127.0.0.1)에서만 접속됩니다. 2026-11-01에 이 서버로 실제 인천공항 API의 시간대 조회와 편명 조회가 응답하는 것까지 확인했습니다(항공편만. 장소 검색·길찾기 함수는 이 서버에 연결했지만 이 확인에서는 호출하지 않았습니다). Netlify의 CDN 캐시와 함수 번들링은 재현하지 않아 배포 후 동작은 확인 못 함입니다.
 - 글꼴(Pretendard)은 CDN에서 받아 오므로 인터넷 연결이 필요합니다. 연결이 없으면 시스템 글꼴로 보입니다.
 
 ## 화면 흐름
