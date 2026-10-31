@@ -21,3 +21,17 @@ export function clampToHour(fromHour, toHour, maxHours = WINDOW_MAX_HOURS) {
 export function toHhmm(hour) {
   return `${String(hour).padStart(2, '0')}00`;
 }
+
+/**
+ * 저장된 검색 값에서 시간대를 되살린다. 시간대로 찾았을 때 저장한 값만 쓰고(편명 검색이 남긴 값·이전 버전 값은 제외),
+ * 깨졌거나 범위를 벗어난 값(시작 0~23, 종료는 시작보다 늦고 최대 폭 이내, 24 이하)은 null 이다.
+ */
+export function readSavedWindow(saved, maxHours = WINDOW_MAX_HOURS) {
+  if (saved?.mode !== 'window') return null;
+  const hourOf = (hhmm) => (/^\d{4}$/.test(hhmm ?? '') && hhmm.slice(2) === '00' ? Number(hhmm.slice(0, 2)) : null);
+  const fromHour = hourOf(saved.from);
+  const toHour = hourOf(saved.to);
+  if (fromHour === null || toHour === null) return null;
+  if (fromHour > 23 || toHour <= fromHour || toHour > Math.min(fromHour + maxHours, 24)) return null;
+  return { fromHour, toHour };
+}

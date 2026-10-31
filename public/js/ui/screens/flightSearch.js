@@ -3,7 +3,7 @@ import { searchFlights, searchFlightsByWindow } from '../../adapters/flightAdapt
 import { WINDOW_MAX_HOURS } from '../../config.js';
 import { parseFlightNo } from '../../domain/flightNo.js';
 import { dayLabel } from '../../domain/time.js';
-import { clampToHour, defaultWindow, toHhmm } from '../../domain/timeWindow.js';
+import { clampToHour, defaultWindow, readSavedWindow, toHhmm } from '../../domain/timeWindow.js';
 import { load, save } from '../../store.js';
 import { icon } from '../components/icon.js';
 import { renderProgress } from '../components/progress.js';
@@ -22,7 +22,6 @@ const MODES = [
   { value: 'window', label: '시간대로 찾기' },
 ];
 const pad2 = (n) => String(n).padStart(2, '0');
-const hourOf = (hhmm) => Number(hhmm.slice(0, 2));
 const hourOption = (hour, selected) => `<option value="${hour}"${hour === selected ? ' selected' : ''}>${pad2(hour)}:00</option>`;
 
 export function renderFlightSearch({ main, footer }, ctx) {
@@ -93,7 +92,8 @@ export function renderFlightSearch({ main, footer }, ctx) {
 
   // 이전 버전에 저장된 값에는 mode 가 없다. 그때는 편명으로 찾기다.
   let mode = saved?.mode === 'window' ? 'window' : 'flightNo';
-  const savedWindow = saved?.from && saved?.to ? { fromHour: hourOf(saved.from), toHour: hourOf(saved.to) } : null;
+  // 시간대로 찾았을 때 저장한 값만 되살린다. (편명 검색이 남긴 값이나 깨진 값은 쓰지 않는다)
+  const savedWindow = readSavedWindow(saved);
   let windowHours = savedWindow ?? defaultWindow(ctx.now(), initialDate, today);
   let windowTouched = savedWindow !== null;
 
@@ -145,6 +145,8 @@ export function renderFlightSearch({ main, footer }, ctx) {
 
   function setBusy(busy) {
     submitBtn.disabled = busy;
+    // 응답을 기다리는 동안 찾기 방식을 바꾸지 못하게 한다.
+    for (const radio of main.querySelectorAll('input[name="find-mode"]')) radio.disabled = busy;
     form.setAttribute('aria-busy', String(busy));
   }
 
@@ -154,8 +156,9 @@ export function renderFlightSearch({ main, footer }, ctx) {
     if (busy) return;
     showNotice(null);
 
+    const submitMode = mode; // 응답을 기다리는 사이 바뀌어도 이 요청의 방식으로 처리한다.
     let parsed = null;
-    if (mode === 'flightNo') {
+    if (submitMode === 'flightNo') {
       parsed = parseFlightNo(flightInput.value);
       flightInput.value = parsed.value;
       if (!parsed.valid) {
@@ -173,7 +176,7 @@ export function renderFlightSearch({ main, footer }, ctx) {
     setBusy(true);
     showNotice('loading');
     const result =
-      mode === 'window'
+      submitMode === 'window'
         ? await searchFlightsByWindow(dateInput.value, from, to)
         : await searchFlights(parsed.value, dateInput.value);
     busy = false;
@@ -182,7 +185,7 @@ export function renderFlightSearch({ main, footer }, ctx) {
     setBusy(false);
 
     if (!result.ok) {
-      if (result.reason === 'notfound') showNotice(mode === 'window' ? 'windowNotfound' : 'notfound');
+      if (result.reason === 'notfound') showNotice(submitMode === 'window' ? 'windowNotfound' : 'notfound');
       else showNotice(result.reason === 'quota' ? 'quota' : 'error');
       return;
     }
@@ -190,11 +193,11 @@ export function renderFlightSearch({ main, footer }, ctx) {
     save({
       ...load(),
       search: {
-        mode,
-        flightNo: mode === 'flightNo' ? parsed.value : (saved?.flightNo ?? ''),
+        mode: submitMode,
+        flightNo: submitMode === 'flightNo' ? parsed.value : (saved?.flightNo ?? ''),
         date: dateInput.value,
-        from,
-        to,
+        // 시간대는 시간대로 찾았을 때만 저장한다. (편명 검색의 값이 "직접 고른 시간대"로 오해되지 않게)
+        ...(submitMode === 'window' ? { from, to } : {}),
         results: result.data,
       },
       selectedFlightId: null,

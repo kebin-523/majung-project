@@ -40,6 +40,7 @@ export function findFlights(flightNo, arrivalDate) {
 }
 
 /** 도착 날짜("YYYY-MM-DD")와 시간대("HHMM"~"HHMM", 종료 2400 은 하루 끝까지)에 예정 시각이 드는 목업. [from, to) 이다. */
+// 목업은 예정 시각 기준이다. (처음 조회한 목업은 변경 전이라 예정 = 변경이다. 실제 API가 예정·변경 중 무엇에 거는지는 확인 못 함)
 export function findFlightsInWindow(arrivalDate, from, to) {
   const toMinutes = (hhmm) => Number(hhmm.slice(0, 2)) * 60 + Number(hhmm.slice(2));
   return buildFlights().filter((f) => {
