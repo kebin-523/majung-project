@@ -402,15 +402,63 @@ select.field__input { color: var(--color-ink); }
 }
 
 /* 추천 출발 시각 카드 (가이드 6장): Peach 배경, 모서리 20px, 안쪽 여백 24px */
+/* 추천 출발 시각 카드 = 비행기 티켓 (DesignGuide 6장 "티켓 모양", 가정). 구역마다 가는 선으로 나누고, 쪽지는 양옆이 파인 절취선으로 떼어 낸다 */
 .reco {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  border-radius: var(--radius-card);
+  background: var(--color-peach);
+}
+
+/* 윗 띠: 대각선 줄무늬(Dusk Blue + Peach). 장식이라 정보를 담지 않고 화면 읽기에서 숨긴다 */
+.ticket__band {
+  height: var(--space-5);
+  border-radius: var(--radius-card) var(--radius-card) 0 0;
+  background: repeating-linear-gradient(135deg, var(--color-dusk-blue) 0 12px, var(--color-peach) 12px 24px);
+}
+
+.ticket__section {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
   gap: var(--space-3);
-  padding: var(--space-4);
-  border-radius: var(--radius-card);
-  background: var(--color-peach);
+  padding: var(--space-3) var(--space-4);
+  border-top: 1px solid var(--color-border);
 }
+
+.ticket__section--first { border-top: 0; padding-top: var(--space-4); }
+
+/* 항공편 정보 칸: 왼쪽 편명·항공사, 오른쪽 출발 도시·도착 날짜. 추천 시각(56px)보다 작게 둔다 */
+.ticket__section.ticket__flight { flex-direction: row; align-items: flex-start; justify-content: space-between; gap: var(--space-3); }
+.ticket__flight-id,
+.ticket__flight-from { display: flex; flex-direction: column; min-width: 0; }
+.ticket__flight-from { align-items: flex-end; text-align: right; }
+.ticket__flight-no { font-size: var(--fs-h3); line-height: var(--lh-h3); font-weight: 600; }
+.ticket__flight-city { font-size: var(--fs-body); line-height: var(--lh-body); }
+
+/* 쪽지: 절취선(점선) 아래. 선 양옆을 페이지 배경(Cream)색 원으로 파낸 것처럼 보이게 한다 */
+.ticket__stub {
+  position: relative;
+  margin-top: var(--space-3);
+  padding: var(--space-3) var(--space-4) var(--space-4);
+  border-top: 2px dashed var(--color-warm-gray);
+}
+
+.ticket__stub::before,
+.ticket__stub::after {
+  content: '';
+  position: absolute;
+  top: -13px;
+  width: var(--space-4);
+  height: var(--space-4);
+  border-radius: 50%;
+  background: var(--color-cream);
+}
+
+.ticket__stub::before { left: calc(var(--space-3) * -0.75); }
+.ticket__stub::after { right: calc(var(--space-3) * -0.75); }
 
 /* 다정한 말풍선: 모서리 20px, 한쪽만 4px */
 .bubble {
@@ -421,7 +469,7 @@ select.field__input { color: var(--color-ink); }
   color: var(--color-ink);
 }
 
-.reco__time-row { display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap; }
+.reco__time-row { display: flex; align-items: center; gap: var(--space-2) var(--space-2); flex-wrap: wrap; }
 .reco__time-group { display: flex; flex-direction: column; }
 
 .reco__day {
@@ -438,18 +486,8 @@ select.field__input { color: var(--color-ink); }
   font-weight: 700;
 }
 
-/* "출발을 추천해요" 알약: 추천 시각 숫자와 한 덩어리인 핵심 안내. Departure Amber 위에는 Ink 글자 (핵심 안내 문장 20px SemiBold) */
-.pill-depart {
-  display: inline-flex;
-  align-items: center;
-  padding: var(--space-1) var(--space-3);
-  border-radius: var(--radius-pill);
-  background: var(--color-amber);
-  color: var(--color-ink);
-  font-size: var(--fs-lead);
-  line-height: var(--lh-lead);
-  font-weight: 600;
-}
+/* 부제 "추천 출발 시간": 추천 시각 숫자 바로 위의 한 줄. 라벨 글자(14px SemiBold, Warm Gray) */
+.reco__subtitle { margin: 0; font-size: var(--fs-chip); line-height: var(--lh-chip); font-weight: 600; color: var(--color-warm-gray); }
 
 /* 상태 배지: 아이콘 + 문구, 색만으로 구분하지 않는다 */
 .badge {
@@ -489,85 +527,79 @@ select.field__input { color: var(--color-ink); }
 
 button.chip { cursor: pointer; }
 
-/* 근거 타임라인 (DesignGuide 6장 "근거 타임라인", 가정): 지점은 점, 구간은 점 사이의 글자. 칩 모양을 쓰지 않는다 */
-.route {
+/* 근거 (DesignGuide 6장 "근거 타임라인", 티켓 모양): 위 줄은 "출발지 ──🚗── 공항", 아래 줄은 항공권의 칸 나누기처럼 "여유 | 비행기 도착". 칩 모양을 쓰지 않는다 */
+.route-group { display: flex; flex-direction: column; }
+.route { display: grid; margin: 0; padding: var(--space-3) var(--space-4); list-style: none; border-top: 1px solid var(--color-border); }
+
+/* 출발지 · 이동 · 공항: 왼쪽 / 가운데 선 / 오른쪽. */
+.route:not(.route--fields) { grid-template-columns: 1fr auto 1fr; column-gap: var(--space-2); }
+.route__stop { display: flex; flex-direction: column; min-width: 0; }
+.route__stop--to { text-align: right; }
+.route__place { font-size: var(--fs-h3); line-height: var(--lh-h3); font-weight: 600; word-break: keep-all; }
+.route__sub { font-size: var(--fs-caption); line-height: var(--lh-caption); color: var(--color-warm-gray); }
+
+/* 가운데: 점선 위의 아이콘 + 이동 시간 (항적선과 같은 Dusk Blue 3px) */
+.route__leg { display: flex; flex-direction: column; align-items: center; min-width: 80px; }
+
+.route__track {
   position: relative;
-  align-self: stretch;
   display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  margin: 0;
-  padding: var(--space-3);
-  list-style: none;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-card);
-  background: var(--color-cream);
+  align-items: center;
+  justify-content: center;
+  align-self: stretch;
+  height: var(--space-5);
 }
 
-/* 점과 점을 잇는 선: 3px, 둥근 끝, Dusk Blue (항적선과 같은 규칙). 첫 점·마지막 점의 가운데에서 시작하고 끝난다 */
-.route::before {
+.route__track::before {
   content: '';
   position: absolute;
-  top: 29px;
-  bottom: 30px;
-  left: 20.5px;
-  width: var(--line-trail);
+  top: 50%;
+  right: 0;
+  left: 0;
+  height: var(--line-trail);
+  transform: translateY(-50%);
   border-radius: var(--radius-pill);
   background: var(--color-dusk-blue);
 }
 
-.route__row { position: relative; padding-left: var(--space-5); }
-.route__row--leg { padding-block: var(--space-1); }
+.route__car { position: relative; display: inline-flex; padding: 0 var(--space-1); background: var(--color-peach); color: var(--color-dusk-blue); }
 
-.route__dot {
-  position: absolute;
-  top: 7px;
-  left: 0;
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  background: var(--color-dusk-blue);
-  box-shadow: 0 0 0 3px var(--color-cream);
-}
+.route__leg-text { display: flex; flex-direction: column; align-items: center; font-weight: 600; line-height: var(--lh-body); text-align: center; }
+.route__leg-text .route__sub { font-weight: 400; }
 
-.route__row--end .route__dot { top: 8px; }
 
-.route__body { display: flex; flex-direction: column; }
-.route__place { font-size: var(--fs-body); line-height: var(--lh-body); font-weight: 600; }
-.route__sub { font-size: var(--fs-caption); line-height: var(--lh-caption); color: var(--color-warm-gray); }
-.route__leg { display: inline-flex; align-items: center; gap: var(--space-2); font-size: var(--fs-body); line-height: var(--lh-body); }
-.route__leg .icon { color: var(--color-warm-gray); }
-.route .reco__travel-checked { margin: var(--space-1) 0 0; color: var(--color-warm-gray); }
+/* 아래 줄: 항공권의 칸 나누기. 라벨(14px Warm Gray) 위에 값(20px SemiBold) */
+/* 세 칸(여유 | 터미널 도착 | 비행기 도착). 좁은 화면에서도 한 줄에 들어가도록 라벨에 아이콘을 두지 않는다 */
+.route--fields { grid-template-columns: repeat(3, minmax(0, 1fr)); column-gap: var(--space-2); }
+.route__field { display: flex; flex-direction: column; align-items: center; gap: var(--space-1); min-width: 0; text-align: center; }
+.route__field + .route__field { padding-left: var(--space-2); border-left: 1px solid var(--color-border); }
 
-/* 수정할 수 있는 구간: Sunset Deep + 연필 아이콘, 터치 영역 44px */
+.route__label { display: inline-flex; align-items: center; gap: var(--space-1); font-size: var(--fs-caption); line-height: var(--lh-caption); color: var(--color-warm-gray); }
+.route__value { display: inline-flex; align-items: center; gap: var(--space-2); font-size: var(--fs-h3); line-height: var(--lh-h3); font-weight: 600; }
+
+/* 수정할 수 있는 칸: Sunset Deep + 연필 아이콘, 터치 영역 44px 이상 */
 .route__edit {
-  align-self: flex-start;
-  display: inline-flex;
+  display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: var(--space-2);
+  gap: var(--space-1);
   min-height: var(--size-touch-min);
-  margin: calc(var(--space-1) * -1) 0;
   padding: 0;
   border: 0;
   background: transparent;
   color: var(--color-sunset-deep);
   font: inherit;
-  font-size: var(--fs-body);
-  font-weight: 600;
+  text-align: center;
   cursor: pointer;
 }
+
+.route__edit .route__label { color: var(--color-sunset-deep); }
 
 .route__edit:focus-visible,
 .icon-btn:focus-visible { outline: 2px solid var(--color-ink); outline-offset: 2px; }
 
-/* 비행기 도착: 합계가 끝나는 지점. 시각은 두 번째로 큰 숫자 */
-.route__arrival { flex-direction: row; flex-wrap: wrap; align-items: baseline; column-gap: var(--space-2); }
-.route__plane { display: inline-flex; align-items: center; gap: var(--space-2); font-size: var(--fs-body); line-height: var(--lh-body); }
-.route__plane .icon { color: var(--color-warm-gray); align-self: center; }
-.route__time { font-size: var(--fs-h3); line-height: var(--lh-h3); font-weight: 600; }
-
 /* 확인 시각 줄 + 새로고침 아이콘 버튼 */
-.reco__foot { align-self: stretch; display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); }
+.reco__foot { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); }
 .reco__checked { margin: 0; }
 
 .icon-btn {
@@ -693,8 +725,8 @@ body.sheet-open { overflow: hidden; }
 /* 도착 정보가 바뀌어 다시 계산될 때: 시각 숫자 교체 (400ms) */
 .reco__time.is-updated--large { animation-duration: var(--dur-large); }
 
-/* 출발할 시간이 되었을 때: "출발" 배지가 한 번만 살짝 커졌다 돌아온다 (250ms) */
-.pill-depart.is-pulse { animation: pill-pulse var(--dur-base) var(--ease) 1; }
+/* 출발할 시간이 되었을 때: 시각 옆 "곧 나갈 시간이에요" 태그가 한 번만 살짝 커졌다 돌아온다 (250ms) */
+.is-pulse { animation: pill-pulse var(--dur-base) var(--ease) 1; }
 
 @keyframes pill-pulse {
   50% { transform: scale(1.12); }

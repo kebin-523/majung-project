@@ -45,6 +45,6 @@ test('착륙한 편도 추천 시각이 지났다면 "지남" 말풍선이 먼�
   assert.equal(vm.bubbleText, '추천 출발 시각이 지났어요. 이동 시간을 다시 확인해 볼까요?');
 });
 
-test('착륙이 아닌 편의 말풍선은 기본 문장', () => {
-  assert.equal(view({ status: 'none' }, 300).bubbleText, '곧 만나겠네요, 슬슬 준비해 볼까요?');
+test('착륙이 아닌 평소 편의 말풍선은 없다 (null)', () => {
+  assert.equal(view({ status: 'none' }, 300).bubbleText, null); // 평소 상태에는 말풍선이 없다 (착륙·지남 안내만 남긴다)
 });

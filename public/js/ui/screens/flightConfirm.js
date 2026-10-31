@@ -1,18 +1,10 @@
 // 2단계 · 항공편 확인: 찾은 항공편 중 맞는 것을 사용자가 직접 고른다. (잘못된 항공편 선택 방지)
 import { filterByOrigin, listOrigins, sortByScheduled, visibleSelection } from '../../domain/originFilter.js';
-import { dayLabel, formatClock, formatSpoken, partsKst } from '../../domain/time.js';
+import { formatClock, formatDateLabel, formatSpoken } from '../../domain/time.js';
 import { load, save } from '../../store.js';
 import { icon } from '../components/icon.js';
 import { renderProgress } from '../components/progress.js';
 import { escapeHtml } from '../html.js';
-
-/** "오늘 · 10월 29일" / "10월 31일" (라벨이 이미 날짜면 한 번만) */
-function dateText(ms, now) {
-  const { m, d } = partsKst(ms);
-  const date = `${m}월 ${d}일`;
-  const label = dayLabel(ms, now);
-  return label === date ? date : `${label} · ${date}`;
-}
 
 function cardHtml(flight, { now, checked }) {
   // 도착한 편은 변경 시각이 실제 도착 시각처럼 보일 수 있어, 원래 예정만 보여 준다. (DesignGuide 12장)
@@ -41,7 +33,7 @@ function cardHtml(flight, { now, checked }) {
             <span class="flight-card__meta" aria-hidden="true">${label}</span>
             <span class="flight-card__clock tabular" aria-hidden="true">${changedFrom}<span>${formatClock(arrival)}</span></span>
             <span class="sr-only">${label} ${formatSpoken(arrival)}${changed ? `, 원래 도착 예정 ${formatSpoken(flight.scheduled)}` : ''}</span>
-            <span class="flight-card__meta tabular">${dateText(arrival, now)}</span>
+            <span class="flight-card__meta tabular">${formatDateLabel(arrival, now)}</span>
           </span>
         </span>
         ${flight.landed ? '<span class="flight-card__meta">이 항공편은 이미 도착했어요.</span>' : ''}

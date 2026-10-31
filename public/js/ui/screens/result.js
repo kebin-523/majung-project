@@ -15,7 +15,7 @@
 //   시나리오 모드의 목업 항공편에는 터미널이 없으므로 이 규칙을 쓰지 않는다. 도착 · 운항 상태 확인 필요 안내가 먼저다.
 // - 착륙한 항공편은 추천 카드를 유지하고 말풍선만 바꾼다. (근거 칩의 비행기 도착 시각은 그대로 보여 준다)
 // - 확인 시각 줄의 새로고침 버튼: 항공편을 다시 확인하고, 도착 시각이 바뀌지 않았어도 이동 시간을 다시 조회해 추천 시각을 다시 계산한다. (호출은 한 번에 항공편 1 + 이동 시간 1, 확인하는 동안 버튼을 막는다)
-// - 모션: 카드 등장, 값이 바뀔 때의 숫자 교체(여유 저장 250ms, 도착 변경 400ms), "출발을 추천해요" 알약 한 번 커졌다 돌아옴.
+// - 모션: 카드 등장, 값이 바뀔 때의 숫자 교체(여유 저장 250ms, 도착 변경 400ms), "곧 나갈 시간이에요" 태그 한 번 커졌다 돌아옴.
 import { getFlight } from '../../adapters/flightAdapter.js';
 import { getDriveTime } from '../../adapters/routeAdapter.js';
 import { DEFAULT_AIRPORT_BUFFER_MIN, DEFAULT_MEETUP_MIN, STATUS_RECHECK_INTERVAL_MS } from '../../config.js';
@@ -26,10 +26,9 @@ import { announcementFor, cardLeadSpoken, focusTargetAfterTransition } from '../
 import { TERMINAL_HOLD_MESSAGE } from '../../domain/routeNotice.js';
 import { terminalCodeOf } from '../../domain/terminal.js';
 import { createAutoRecheck } from '../../domain/autoRecheck.js';
-import { travelCheckedLine } from '../../domain/travelChecked.js';
 import { isStale, lastConfirmedAt, resolveBadge, resolveFlightView } from '../../domain/status.js';
 import {
-  dayLabel, formatClock, formatClockWithDay, formatSpoken, formatSpokenWithDay, isSameDayKst,
+  dayLabel, formatClock, formatClockWithDay, formatDateLabel, formatSpoken, formatSpokenWithDay, isSameDayKst, minutes,
 } from '../../domain/time.js';
 import { load, save } from '../../store.js';
 import { closeCurrentSheet, openBufferSheet } from '../components/bottomSheet.js';
@@ -38,8 +37,8 @@ import { renderTimeline } from '../components/routeTimeline.js';
 import { renderCheckedLine, renderRecommendCardContent } from '../components/recommendCard.js';
 import { icon } from '../components/icon.js';
 
+// 평소 상태에는 말풍선을 두지 않는다. (사용자 요청) 알려야 하는 두 경우(지남 · 착륙)만 남긴다.
 const BUBBLES = {
-  default: '곧 만나겠네요, 슬슬 준비해 볼까요?',
   passed: '추천 출발 시각이 지났어요. 이동 시간을 다시 확인해 볼까요?',
   touchdown: '비행기가 착륙했어요, 입국 절차가 끝나면 만날 수 있어요.',
 };
@@ -62,9 +61,8 @@ const MESSAGES = {
  * @param {boolean} [input.checking]   최신 정보를 확인하는 중인가
  * @param {{name?: string, address?: string} | null} [input.origin]  사용자가 고른 출발지. 근거 타임라인의 첫 점에 이름과 주소를 다시 보여 준다.
  * @param {boolean} [input.refreshing]  새로고침으로 이동 시간을 다시 조회하는 중인가 (버튼을 막는다)
- * @param {boolean} [input.scenarioMode]  시나리오 모드인가. 목업 이동 시간에는 "이동 시간은 N:NN에 확인했어요" 줄을 붙이지 않는다.
  */
-export function buildResultViewModel({ flight, drive, buffers, now, hasChange = false, checking = false, refreshing = false, origin = null, scenarioMode = false }) {
+export function buildResultViewModel({ flight, drive, buffers, now, hasChange = false, checking = false, refreshing = false, origin = null }) {
   const arrival = latestArrival(flight);
   const { departureMs } = recommendDeparture({
     arrival,
@@ -91,11 +89,20 @@ export function buildResultViewModel({ flight, drive, buffers, now, hasChange = 
     timeText: formatClock(departureMs),
     timeSpoken: formatSpoken(departureMs),
     // 추천 시각이 지났다면 "지남" 안내가 먼저다. 그 밖에 착륙한 편은 말풍선만 바꾼다.
-    bubbleText: badgeKey === 'passed' ? BUBBLES.passed : resolveFlightView(flight).touchdown ? BUBBLES.touchdown : BUBBLES.default,
+    bubbleText: badgeKey === 'passed' ? BUBBLES.passed : resolveFlightView(flight).touchdown ? BUBBLES.touchdown : null,
     arrivalText: formatClockWithDay(arrival, now),
     arrivalSpoken: formatSpokenWithDay(arrival, now),
     travelMin: drive.minutes,
     bufferTotalMin: buffers.airportBufferMin + buffers.meetupMin,
+    // 터미널 도착 예상: 추천 출발 시각 + 이동 시간. API가 주는 값이 아니라 우리가 계산한 예상이다. (추천 출발 시각 + 이동 + 여유 = 비행기 도착)
+    terminalArrivalMs: departureMs + minutes(drive.minutes),
+    terminalArrivalText: formatClockWithDay(departureMs + minutes(drive.minutes), now),
+    terminalArrivalSpoken: formatSpokenWithDay(departureMs + minutes(drive.minutes), now),
+    // 사용자가 앞서 고른 항공편 정보. 값이 없는 항목은 화면에서 만들지 않는다.
+    flightNo: flight.flightNo || null,
+    airline: flight.airline || null,
+    departureCity: flight.departureCity || null,
+    flightDateText: formatDateLabel(arrival, now),
     originName: origin?.name ?? null,
     originAddress: origin?.address || null,
     // API가 터미널을 준 편만 터미널 이름을 붙인다. 모르면 "인천공항"만 쓴다. (없는 값을 만들지 않는다)
@@ -106,8 +113,6 @@ export function buildResultViewModel({ flight, drive, buffers, now, hasChange = 
     // 서버가 인천공항 API 를 부른 시각. 표시에만 쓰고 오래됨 판단에는 쓰지 않는다.
     checkedText: formatClock(flight.fetchedAt),
     checkedSpoken: formatSpoken(flight.fetchedAt),
-    // 이동 시간을 조회한 시각(기기 시계). 항공편 확인 시각과 비교하지 않고, 오래됨 판단에도 쓰지 않는다. 숨기는 경우는 null. (domain/travelChecked.js)
-    travelChecked: travelCheckedLine(drive, { scenarioMode }),
   };
 }
 
@@ -181,7 +186,7 @@ export function renderResult({ main }, ctx) {
   const getBufferChip = () => main.querySelector('[data-chip="buffer"]');
 
   const makeVm = () => buildResultViewModel({
-    flight, drive, buffers, now: ctx.now(), hasChange: change !== null, checking, refreshing: travelBusy || manualBusy, origin: state.origin, scenarioMode: isScenarioMode(),
+    flight, drive, buffers, now: ctx.now(), hasChange: change !== null, checking, refreshing: travelBusy || manualBusy, origin: state.origin,
   });
 
   function openSheet() {
@@ -263,7 +268,7 @@ export function renderResult({ main }, ctx) {
     // 곧 나갈 시간이 되면 "출발" 배지가 한 번만 살짝 커졌다 돌아온다.
     if (lastVm.badgeKey === 'soon' && !pulsed) {
       pulsed = true;
-      host.querySelector('.pill-depart')?.classList.add('is-pulse');
+      host.querySelector('.reco__time-row .badge')?.classList.add('is-pulse');
     }
 
     getBufferChip()?.addEventListener('click', openSheet);
@@ -405,13 +410,13 @@ export function renderResult({ main }, ctx) {
 
   /** 추천 출발 시각이 지났을 때: 이동 시간만 다시 조회해 다시 계산한다. */
   async function recheckTravel() {
-    if (travelBusy) return;
+    if (travelBusy) return false;
     travelBusy = true;
     noticeHost.innerHTML = `<p class="caption">${MESSAGES.travelChecking}</p>`;
     drawActions();
 
     const route = await getDriveTime(state.origin, { refresh: true, terminal: terminalCodeOf(flight) });
-    if (!host.isConnected) return;
+    if (!host.isConnected) return false;
     travelBusy = false;
     syncRefreshButton();
 
@@ -425,6 +430,7 @@ export function renderResult({ main }, ctx) {
       noticeHost.innerHTML = noticeHtml(MESSAGES.travelRecheckFailed);
       drawActions();
     }
+    return route.ok;
   }
 
   /** "다시 시도"와 자동 재확인이 함께 쓴다. 확인하는 동안 확인 시각 줄이 "확인 중이에요"로 바뀐다. */
@@ -437,8 +443,10 @@ export function renderResult({ main }, ctx) {
   }
 
   /**
-   * 확인 시각 줄의 새로고침 버튼: 항공편을 다시 확인하고, 이 확인에서 이동 시간을 다시 조회하지 않았다면 이동 시간도 다시 조회해 추천 시각을 다시 계산한다.
-   * 항공편 확인이 실패하면 이전 값을 그대로 두고 안내만 한다. (오래된 값을 최신처럼 바꾸지 않는다)
+   * 확인 시각 줄의 새로고침 버튼: 누른 시각 기준으로 항공편과 이동 시간을 다시 확인해 추천 시각을 다시 계산한다.
+   * - 이동 시간은 카카오 길찾기를 다시 호출해 구한다. (이 API 에는 출발 시각 지정이 없고 응답은 "현재" 값이라, 호출한 시각이 곧 기준이다)
+   * - 항공편 확인이 실패해도 이동 시간은 다시 구한다. (둘은 서로 영향을 주지 않는다. 한쪽이 실패하면 그 값만 이전 값을 그대로 두고 따로 알린다)
+   * - 도착 시각이 바뀌어 이 확인에서 이동 시간을 이미 다시 조회했다면 한 번 더 부르지 않는다.
    */
   async function manualRefresh() {
     if (refreshing || checking || travelBusy || manualBusy || !showsCard()) return;
@@ -448,14 +456,15 @@ export function renderResult({ main }, ctx) {
     updateCheckedLine(); // "확인 중이에요", 버튼을 막는다
     const result = await refresh();
     if (!host.isConnected) return;
-    if (result && !result.ok) {
-      manualBusy = false;
-      noticeHost.innerHTML = noticeHtml(MESSAGES.refreshFailed);
-      syncRefreshButton();
-      return;
-    }
-    if (result && !result.travelRefreshed && showsCard()) await recheckTravel();
+
+    const flightFailed = result !== null && !result.ok;
+    let travelOk = true;
+    if (result !== null && !result.travelRefreshed && showsCard()) travelOk = await recheckTravel();
+    if (!host.isConnected) return;
+
     manualBusy = false;
+    // 실패한 항목마다 안내를 보인다. (이동 시간 안내는 recheckTravel 이 이미 보였을 수 있어 여기서 한 번에 다시 정한다)
+    noticeHost.innerHTML = [flightFailed ? noticeHtml(MESSAGES.refreshFailed) : '', travelOk ? '' : noticeHtml(MESSAGES.travelRecheckFailed)].join('');
     syncRefreshButton();
   }
 
