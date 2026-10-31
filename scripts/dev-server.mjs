@@ -51,17 +51,22 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  const file = path.normalize(path.join(publicDir, url.pathname === '/' ? 'index.html' : decodeURIComponent(url.pathname)));
-  if (!file.startsWith(publicDir)) {
-    res.writeHead(403).end();
+  // 파일을 다 읽은 뒤에 응답을 시작한다. (없는 파일·잘못된 주소는 404 로 답하고 서버는 계속 돈다)
+  let file;
+  let content;
+  try {
+    file = path.normalize(path.join(publicDir, url.pathname === '/' ? 'index.html' : decodeURIComponent(url.pathname)));
+    if (!file.startsWith(publicDir + path.sep) && file !== publicDir) {
+      res.writeHead(403).end();
+      return;
+    }
+    content = await readFile(file);
+  } catch {
+    res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' }).end('not found');
     return;
   }
-  try {
-    res.writeHead(200, { 'Content-Type': TYPES[path.extname(file)] ?? 'application/octet-stream', 'Cache-Control': 'no-store' });
-    res.end(await readFile(file));
-  } catch {
-    res.writeHead(404).end('not found');
-  }
+  res.writeHead(200, { 'Content-Type': TYPES[path.extname(file)] ?? 'application/octet-stream', 'Cache-Control': 'no-store' });
+  res.end(content);
 });
 
 server.listen(port, '127.0.0.1', () => {
