@@ -426,3 +426,15 @@ test('interpretArrivalsResponse: 재확인(refresh)도 같은 규칙으로 해�
   assert.equal(found.data.flightNo, 'KE5854');
   assert.deepEqual(interpretArrivalsResponse({ status: 200, text: loadFixtureText(FIXTURES.none) }, options), { ok: false, reason: 'missing' });
 });
+
+test('window 모드는 search 처럼 여러 행과 truncated 를 돌려준다', () => {
+  const result = normalizeArrivalsBody(makeBody([makeRow()], 40), { mode: 'window', fetchedAt: FETCHED_AT });
+  assert.equal(result.ok, true);
+  assert.equal(Array.isArray(result.data), true);
+  assert.equal(result.truncated, true);
+});
+
+test('window 모드 0건은 notfound', () => {
+  const result = normalizeArrivalsBody(makeBody([], 0), { mode: 'window', fetchedAt: FETCHED_AT });
+  assert.deepEqual(result, { ok: false, reason: 'notfound' });
+});

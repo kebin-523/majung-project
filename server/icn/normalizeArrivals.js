@@ -114,8 +114,8 @@ function checkOptions(options) {
   if (typeof fetchedAt !== 'number' || !Number.isFinite(fetchedAt)) {
     throw new TypeError('fetchedAt(조회 시각, epoch ms)이 필요해요.');
   }
-  if (mode !== 'search' && mode !== 'refresh') {
-    throw new TypeError(`mode 는 'search' 또는 'refresh' 여야 해요: ${String(mode)}`);
+  if (mode !== 'search' && mode !== 'refresh' && mode !== 'window') {
+    throw new TypeError(`mode 는 'search', 'refresh', 'window' 중 하나여야 해요: ${String(mode)}`);
   }
   if (mode === 'refresh' && !isNonEmptyString(fid)) {
     throw new TypeError("mode 'refresh' 에는 fid 가 필요해요.");
@@ -128,7 +128,8 @@ function checkOptions(options) {
  *
  * @param {object} body
  * @param {object} options
- * @param {'search'|'refresh'} [options.mode='search']  search: 처음 검색(여러 행), refresh: 등록한 편의 재확인(f_id + searchday 조회, 한 건)
+ * @param {'search'|'refresh'|'window'} [options.mode='search']  search: 처음 검색(여러 행), refresh: 등록한 편의 재확인(f_id + searchday 조회, 한 건),
+ *   window: 편명을 모를 때 도착 시간대로 찾기(여러 행, 처리는 search 와 같다)
  * @param {string} [options.fid]                        refresh 에서 찾을 fid
  * @param {number} options.fetchedAt                    조회 시각(ms)
  * @returns {{ ok: true, data: object[], skippedRows: number, truncated: boolean }

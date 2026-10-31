@@ -3,8 +3,9 @@
 //
 // 요청(GET): /api/flights?mode=search&flightNo=KE123&date=2026-10-30
 //            /api/flights?mode=refresh&fid=<API의 fid>&date=2026-10-30   (이미 고른 항공편의 재확인)
+//            /api/flights?mode=window&date=2026-10-30&from=1700&to=1800   (편명을 모를 때 도착 시간대로 찾기. from·to 는 HHMM, to 는 2400 까지)
 // 응답(JSON):
-//   성공   { ok: true, data, skippedRows, fetchedAt, truncated? }   data 는 search 면 배열, refresh 면 한 건. truncated 는 search 에만
+//   성공   { ok: true, data, skippedRows, fetchedAt, truncated? }   data 는 search·window 면 배열, refresh 면 한 건. truncated 는 search·window 에만
 //   실패   { ok: false, reason: 'notfound' | 'missing' | 'quota' | 'config' | 'error' }
 // fetchedAt 은 공공 API 를 부르기 직전의 서버 시각(epoch ms)이다. 응답이 캐시에서 나가도 값이 그대로라 "마지막으로 확인한 시각"이 거짓이 되지 않는다.
 //
@@ -21,12 +22,15 @@ import { interpretArrivalsResponse } from './normalizeArrivals.js';
 export const ARRIVALS_URL = 'https://apis.data.go.kr/B551177/StatusOfPassengerFlightsDeOdp/getPassengerArrivalsDeOdp';
 export const NUM_OF_ROWS = 500; // 2026-10-30 샘플 조사에서 받아들여지는 것이 관찰됐다. 상한은 확인 못 함.
 export const UPSTREAM_TIMEOUT_MS = 8000;
+// 시간대 조회의 최대 폭(분). 한 번 호출로 numOfRows 를 넘지 않게 하려는 가정값이다. (화면의 WINDOW_MAX_HOURS 와 같은 뜻, 서버는 public/ 을 불러오지 않아 따로 둔다)
+export const MAX_WINDOW_MIN = 180;
 export const CDN_CACHE_SECONDS = 5 * 60; // (가정)
 
 // 편명 형식은 public/js/domain/flightNo.js 의 FLIGHT_NO 와 같은 모양이다. (서버는 public/ 을 불러오지 않아 따로 둔다)
 const FLIGHT_NO = /^(?:[A-Z][A-Z0-9]|[0-9][A-Z])\d{1,4}[A-Z]?$/;
 const FID = /^[A-Za-z0-9]{1,50}$/;
 const DATE = /^(\d{4})-(\d{2})-(\d{2})$/;
+const HHMM = /^(\d{2})(\d{2})$/;
 
 const STATUS_BY_REASON = {
   notfound: 200, // 조회는 성공했고 해당 항공편이 없는 것
@@ -62,6 +66,15 @@ function toSearchDay(text) {
   return `${match[1]}${match[2]}${match[3]}`;
 }
 
+/** "1700" → 1020(분). 시 0~23·분 0~59, allowEnd 면 "2400"(1440)도 허용한다. 아니면 null. */
+function toMinuteOfDay(text, allowEnd) {
+  const match = HHMM.exec(text ?? '');
+  if (!match) return null;
+  const [h, m] = [Number(match[1]), Number(match[2])];
+  if (allowEnd && h === 24 && m === 0) return 24 * 60;
+  return h <= 23 && m <= 59 ? h * 60 + m : null;
+}
+
 /** 요청 값을 서버에서 다시 검증한다. 잘못되면 null. (날짜 범위는 API 가 거절하는 기준을 몰라 검사하지 않는다) */
 function readQuery(url) {
   const params = url.searchParams;
@@ -76,6 +89,14 @@ function readQuery(url) {
   if (mode === 'refresh') {
     const fid = params.get('fid') ?? '';
     return FID.test(fid) ? { mode, searchDay, fid } : null;
+  }
+  if (mode === 'window') {
+    const fromTime = params.get('from');
+    const toTime = params.get('to');
+    const from = toMinuteOfDay(fromTime, false);
+    const to = toMinuteOfDay(toTime, true);
+    if (from === null || to === null || from >= to || to - from > MAX_WINDOW_MIN) return null;
+    return { mode, searchDay, fromTime, toTime };
   }
   return null;
 }
@@ -100,8 +121,14 @@ function buildArrivalsUrl(query, serviceKey) {
     numOfRows: String(NUM_OF_ROWS),
     pageNo: '1',
   });
-  if (query.mode === 'search') params.set('flight_id', query.flightNo);
-  else params.set('f_id', query.fid);
+  if (query.mode === 'search') {
+    params.set('flight_id', query.flightNo);
+  } else if (query.mode === 'window') {
+    params.set('from_time', query.fromTime);
+    params.set('to_time', query.toTime);
+  } else {
+    params.set('f_id', query.fid);
+  }
   return `${ARRIVALS_URL}?${params}`;
 }
 

@@ -225,3 +225,52 @@ test('착륙·도착·모르는 상태는 변환 결과의 status 로 그대로 
   const result = await json(response);
   assert.deepEqual(result.data.map((f) => f.status), ['touchdown', 'arrived', 'unknown']);
 });
+
+// ── 시간대 조회(window) ─────────────────────────────────────
+
+const WINDOW = '/api/flights?mode=window&date=2026-10-30&from=1700&to=1800';
+
+test('window 성공: searchday·from_time·to_time 을 담아 한 번만 부르고 flight_id·f_id·inqtimechcd 는 보내지 않는다', async () => {
+  const { response, calls } = await run(WINDOW, { text: body([row()]) });
+  assert.equal(response.status, 200);
+  assert.equal(calls.length, 1);
+
+  const url = new URL(calls[0].url);
+  assert.equal(url.searchParams.get('searchday'), '20261030');
+  assert.equal(url.searchParams.get('from_time'), '1700');
+  assert.equal(url.searchParams.get('to_time'), '1800');
+  assert.equal(url.searchParams.get('flight_id'), null);
+  assert.equal(url.searchParams.get('f_id'), null);
+  assert.equal(url.searchParams.get('inqtimechcd'), null);
+  assert.equal(url.searchParams.get('numOfRows'), '500');
+  assert.equal(Array.isArray((await json(response)).data), true);
+});
+
+test('window: 종료 2400 은 받아들인다', async () => {
+  const { response, calls } = await run('/api/flights?mode=window&date=2026-10-30&from=2100&to=2400', { text: body([row()]) });
+  assert.equal(response.status, 200);
+  assert.equal(new URL(calls[0].url).searchParams.get('to_time'), '2400');
+});
+
+test('window: 잘못된 시간은 외부를 부르지 않고 config 400', async () => {
+  const bad = ['from=2400&to=2400', 'from=1800&to=1700', 'from=1700&to=1700', 'from=1700&to=2100', 'from=1760&to=1800', 'from=17&to=18', 'to=1800', 'from=1700&to=2401'];
+  for (const query of bad) {
+    const { response, calls } = await run(`/api/flights?mode=window&date=2026-10-30&${query}`, { text: body([row()]) });
+    assert.equal(response.status, 400, query);
+    assert.equal((await json(response)).reason, 'config', query);
+    assert.equal(calls.length, 0, query);
+  }
+});
+
+test('window: 0건이면 notfound 이고 캐시하지 않는다', async () => {
+  const { response } = await run(WINDOW, { text: body([], 0) });
+  assert.deepEqual(await json(response), { ok: false, reason: 'notfound' });
+  assert.equal(response.headers.get('Cache-Control'), 'no-store');
+});
+
+test('window: 성공은 CDN 캐시 5분, totalCount 가 받은 행보다 크면 truncated true', async () => {
+  const { response, calls } = await run(WINDOW, { text: body([row()], 800) });
+  assert.equal(response.headers.get('Netlify-CDN-Cache-Control'), 'public, s-maxage=300');
+  assert.equal((await json(response)).truncated, true);
+  assert.equal(calls.length, 1);
+});
