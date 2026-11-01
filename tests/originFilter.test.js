@@ -1,7 +1,7 @@
 // 시간대 검색 결과의 출발 도시 필터(public/js/domain/originFilter.js).
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { filterByOrigin, listOrigins, sortByScheduled, visibleSelection } from '../public/js/domain/originFilter.js';
+import { filterByOrigin, filterByQuery, listOrigins, listOriginsMatching, matchesOrigin, orderOrigins, sortByScheduled, visibleSelection } from '../public/js/domain/originFilter.js';
 
 const f = (flightId, scheduled, departureCity, flightNo = 'KE1') => ({ flightId, flightNo, scheduled, departureCity });
 
@@ -34,4 +34,51 @@ test('visibleSelection 은 가려진 선택을 null 로', () => {
 
 test('visibleSelection 은 보이는 선택을 그대로', () => {
   assert.equal(visibleSelection([f('a', 1, '도쿄')], 'a'), 'a');
+});
+
+// ---------- 출발 도시 검색 · 칩 순서 ----------
+
+test('matchesOrigin: 부분 일치, 띄어쓰기·"/"·괄호·대소문자는 무시한다', () => {
+  assert.equal(matchesOrigin('도쿄/나리타', '나리타'), true);
+  assert.equal(matchesOrigin('도쿄/나리타', '도쿄'), true);
+  assert.equal(matchesOrigin('오사카/ 간사이', '오사카간사이'), true); // 칩에 보이는 모양 그대로 이어 써도 찾는다
+  assert.equal(matchesOrigin('오사카/ 간사이', ' 간사이 '), true);
+  assert.equal(matchesOrigin('선양(심양)', '심양'), true);
+  assert.equal(matchesOrigin('선양(심양)', '선양심양'), true);
+  assert.equal(matchesOrigin('Paris/CDG', 'paris'), true);
+  assert.equal(matchesOrigin('도쿄/나리타', '방콕'), false);
+  assert.equal(matchesOrigin('도쿄/나리타', '나리타도쿄'), false); // 순서가 다르면 찾지 않는다
+});
+
+test('matchesOrigin: 검색어가 비어 있으면(공백만 있어도) 모두 일치하고, 출발 도시 값이 없는 편은 검색어가 있을 때만 빠진다', () => {
+  assert.equal(matchesOrigin('도쿄/나리타', ''), true);
+  assert.equal(matchesOrigin('도쿄/나리타', '   '), true);
+  assert.equal(matchesOrigin(null, ''), true);
+  assert.equal(matchesOrigin(undefined, '  '), true);
+  assert.equal(matchesOrigin(null, '도쿄'), false);
+  assert.equal(matchesOrigin('', '도쿄'), false);
+});
+
+test('filterByQuery: 검색어에 맞는 도시의 편만 남기고 입력 순서를 지킨다 (빈 검색어는 전체)', () => {
+  const flights = [f('a', 1, '도쿄/나리타'), f('b', 2, '방콕/수완나품'), f('c', 3, null), f('d', 4, '도쿄/하네다')];
+  assert.deepEqual(filterByQuery(flights, '도쿄').map((x) => x.flightId), ['a', 'd']);
+  assert.deepEqual(filterByQuery(flights, '').map((x) => x.flightId), ['a', 'b', 'c', 'd']);
+  assert.deepEqual(filterByQuery(flights, '없는도시'), []);
+});
+
+test('listOriginsMatching: 검색어에 맞는 출발 도시만 가나다순으로 (값 없는 편 제외)', () => {
+  const flights = [f('a', 1, '도쿄/나리타'), f('b', 2, '방콕'), f('c', 3, null), f('d', 4, '도쿄/하네다'), f('e', 5, '도쿄/나리타')];
+  assert.deepEqual(listOriginsMatching(flights, '도쿄'), ['도쿄/나리타', '도쿄/하네다']);
+  assert.deepEqual(listOriginsMatching(flights, ''), ['도쿄/나리타', '도쿄/하네다', '방콕'].sort((a, b) => a.localeCompare(b, 'ko')));
+  assert.deepEqual(listOriginsMatching(flights, '로마'), []);
+});
+
+test('orderOrigins: 접었을 때는 선택한 도시를 맨 앞으로 (가려진 줄에 선택이 숨지 않게), 펼쳤을 때는 그대로', () => {
+  const origins = ['가고시마', '나고야', '다낭', '라오스'];
+  assert.deepEqual(orderOrigins(origins, '다낭', false), ['다낭', '가고시마', '나고야', '라오스']);
+  assert.deepEqual(orderOrigins(origins, '다낭', true), origins);
+  assert.deepEqual(orderOrigins(origins, null, false), origins);
+  assert.deepEqual(orderOrigins(origins, '없는도시', false), origins);
+  assert.notEqual(orderOrigins(origins, null, true), origins); // 새 배열이다 (원본을 바꾸지 않는다)
+  assert.deepEqual(origins, ['가고시마', '나고야', '다낭', '라오스']);
 });

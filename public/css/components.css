@@ -330,6 +330,44 @@ select.field__input { color: var(--color-ink); }
   height: 1px;
 }
 
+/* 출발 도시 검색 + 접히는 칩 줄 (DesignGuide 6장, 가정). 입력창 규칙(56px, Warm Gray 테두리, 모서리 12px)을 그대로 쓴다 */
+.origin-picker { display: flex; flex-direction: column; gap: var(--space-3); }
+
+.origin-search { position: relative; }
+
+.origin-search .icon {
+  position: absolute;
+  top: 50%;
+  left: var(--space-3);
+  transform: translateY(-50%);
+  color: var(--color-warm-gray);
+  pointer-events: none;
+}
+
+.origin-search__input {
+  padding-left: calc(var(--space-3) + 20px + var(--space-2));
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.origin-search__input { padding-right: var(--size-touch-min); }
+.origin-search__input::placeholder { color: var(--color-warm-gray); }
+/* 브라우저 기본 지우기(X)는 팔레트에 없는 파란색이라 숨기고, 같은 일을 하는 아이콘 버튼을 직접 둔다 */
+.origin-search__input::-webkit-search-cancel-button,
+.origin-search__input::-webkit-search-decoration { display: none; -webkit-appearance: none; }
+.origin-search .icon-btn { position: absolute; top: 50%; right: var(--space-1); transform: translateY(-50%); }
+.origin-search .icon-btn[hidden] { display: none; }
+
+/* 칩 줄: 처음엔 한 줄(칩 높이 44px)만 보이고 오른쪽 토글로 펼친다. 포커스 윤곽선이 잘리지 않게 2px 여백을 두되 자리는 차지하지 않는다 */
+.origin-chips { display: flex; align-items: flex-start; gap: var(--space-2); }
+.origin-chips__list { flex: 1; margin: -2px; padding: 2px; transition: max-height var(--dur-base) var(--ease); }
+.origin-chips__list.is-collapsed { max-height: calc(var(--size-chip-h) + 4px); overflow: hidden; }
+.origin-chips__list.is-animating { overflow: hidden; }
+
+.origin-chips__toggle[hidden] { display: none; }
+.origin-chips__toggle .icon { transition: transform var(--dur-base) var(--ease); }
+.origin-chips__toggle[aria-expanded="true"] .icon { transform: rotate(180deg); }
+
 /* 항공편 결과 카드 = 비행기 티켓 (DesignGuide 6장, 가정): 위 구역 · 점선 절취선(양옆 홈) · 아래 칸 */
 .flight-card__body {
   display: flex;
