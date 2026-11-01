@@ -1,5 +1,5 @@
 // 추천 출발 시각 카드 (브랜드 핵심 컴포넌트). 비행기 티켓 모양이다. (DesignGuide 6장 "티켓 모양", 가정)
-// 위에서 아래로: 줄무늬 띠(장식) → 항공편 정보(편명·항공사 / 출발 도시·도착 날짜) → (상태 줄: 지남·착륙·곧 출발일 때만) → 부제 "추천 출발 시간" + 추천 시각 → 근거(출발지 → 이동 → 공항 / 여유 · 비행기 도착)
+// 위에서 아래로: 줄무늬 띠(장식) → 항공편 정보(편명·항공사 / 출발 도시·도착 날짜) → (상태 줄: 지남·착륙·곧 출발일 때만) → 부제 "추천 출발 시간" + 추천 시각 + "지금" 줄(현재 시각 · 출발까지 남은 시간) → 시간표 → 근거(출발지 → 이동 → 공항 / 여유 · 비행기 도착)
 //   ┄┄ 절취선(양옆이 파인 홈) ┄┄ → 쪽지: 확인 시각·예상 안내 + 새로고침
 // 시각 옆에는 알약·태그를 두지 않는다. (부제가 이미 "추천 출발 시간"이고 상태는 상태 줄 하나로 알려, 같은 말이 두 번 나오지 않게 한다. 사용자 요청)
 // 상태 줄은 말풍선이 아니라 다른 구역과 같은 구분선이 있는 평평한 한 줄이다. 평소 상태에는 없다.
@@ -50,6 +50,24 @@ export function renderFlightHeader(vm) {
         <div class="ticket__flight-id">${left}</div>
         <div class="ticket__flight-from">${right}</div>
       </div>`;
+}
+
+/**
+ * "지금" 줄: 현재 시각(기기 시계)과 추천 출발 시각까지 남은(또는 지난) 시간. 추천 시각 바로 아래에 둔다.
+ * 매분 값이 바뀌므로 aria-live="off"로 두어 화면 읽기 프로그램이 매분 읽지 않게 한다. (카드 바깥 영역은 aria-live="polite")
+ * 카드 전체를 다시 그리지 않고 이 줄만 바꿀 때도 쓴다. (screens/result.js)
+ *
+ * @param {{nowText: string, nowSpoken: string, untilKind: 'until'|'now'|'passed', untilText: string}} vm
+ */
+export function renderNowRow(vm) {
+  return `<div class="reco__now" aria-live="off">
+          <span class="reco__now-clock">
+            <span class="reco__now-label">지금</span>
+            <span class="reco__now-time tabular" aria-hidden="true">${vm.nowText}</span>
+            <span class="sr-only">지금 ${vm.nowSpoken}</span>
+          </span>
+          <span class="reco__until reco__until--${vm.untilKind}">${vm.untilText}</span>
+        </div>`;
 }
 
 const STATUS_ICON = { passed: 'clock', soon: 'clock', touchdown: 'plane' };
@@ -103,6 +121,7 @@ export function renderRecommendCardContent(vm) {
             <span class="sr-only">${day}${vm.timeSpoken}</span>
           </div>
         </div>
+        ${renderNowRow(vm)}
       </div>
       ${vm.timelineHtml}
       <div class="ticket__stub">

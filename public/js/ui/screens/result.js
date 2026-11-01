@@ -26,6 +26,7 @@ import { announcementFor, cardLeadSpoken, focusTargetAfterTransition } from '../
 import { TERMINAL_HOLD_MESSAGE } from '../../domain/routeNotice.js';
 import { terminalCodeOf } from '../../domain/terminal.js';
 import { createAutoRecheck } from '../../domain/autoRecheck.js';
+import { describeUntil } from '../../domain/countdown.js';
 import { isStale, lastConfirmedAt, resolveBadge, resolveFlightView } from '../../domain/status.js';
 import {
   dayLabel, formatClock, formatClockWithDay, formatDateLabel, formatSpoken, formatSpokenWithDay, isSameDayKst, minutes,
@@ -34,7 +35,7 @@ import { load, save } from '../../store.js';
 import { closeCurrentSheet, openBufferSheet } from '../components/bottomSheet.js';
 import { renderChangeBanner } from '../components/changeBanner.js';
 import { renderTimeline } from '../components/routeTimeline.js';
-import { renderCheckedLine, renderRecommendCardContent } from '../components/recommendCard.js';
+import { renderCheckedLine, renderNowRow, renderRecommendCardContent } from '../components/recommendCard.js';
 import { icon } from '../components/icon.js';
 
 // 카드의 "상태 줄": 알려야 하는 경우(지남 · 착륙 · 곧 출발)에만 한 문장을 보여 준다. 평소 상태에는 없다. (사용자 요청)
@@ -72,6 +73,9 @@ const MESSAGES = {
  * @param {{name?: string, address?: string} | null} [input.origin]  사용자가 고른 출발지. 근거 타임라인의 첫 점에 이름과 주소를 다시 보여 준다.
  * @param {boolean} [input.refreshing]  새로고침으로 이동 시간을 다시 조회하는 중인가 (버튼을 막는다)
  */
+/** 지금과 다른 날이면 날짜 라벨("내일" 등), 같은 날이면 null */
+const dayOrNull = (ms, now) => (isSameDayKst(ms, now) ? null : dayLabel(ms, now));
+
 export function buildResultViewModel({ flight, drive, buffers, now, hasChange = false, checking = false, refreshing = false, origin = null }) {
   const arrival = latestArrival(flight);
   const { departureMs } = recommendDeparture({
@@ -110,6 +114,16 @@ export function buildResultViewModel({ flight, drive, buffers, now, hasChange = 
     // 터미널 도착 예상: 추천 출발 시각 + 이동 시간. API가 주는 값이 아니라 우리가 계산한 예상이다. (추천 출발 시각 + 이동 + 여유 = 비행기 도착)
     terminalArrivalMs: departureMs + minutes(drive.minutes),
     terminalArrivalText: formatClockWithDay(departureMs + minutes(drive.minutes), now),
+    terminalArrivalClock: formatClock(departureMs + minutes(drive.minutes)),
+    terminalArrivalDay: dayOrNull(departureMs + minutes(drive.minutes), now),
+    departureDay: dayOrNull(departureMs, now),
+    arrivalClock: formatClock(arrival),
+    arrivalDay: dayOrNull(arrival, now),
+    // 지금 시각(기기 시계)과 추천 출발 시각까지 남은 시간. 남은 시간은 우리가 계산한 값이다.
+    nowText: formatClock(now),
+    nowSpoken: formatSpoken(now),
+    untilKind: describeUntil(departureMs, now).kind,
+    untilText: describeUntil(departureMs, now).text,
     terminalArrivalSpoken: formatSpokenWithDay(departureMs + minutes(drive.minutes), now),
     // 사용자가 앞서 고른 항공편 정보. 값이 없는 항목은 화면에서 만들지 않는다.
     flightNo: flight.flightNo || null,
@@ -301,6 +315,17 @@ export function renderResult({ main }, ctx) {
     const active = document.activeElement;
     if (!active || active === document.body) return false;
     return host.contains(active) || actionsHost.contains(active) || noticeHost.contains(active) || active === changeBtn;
+  }
+
+  /** "지금" 줄만 바꾼다. (카드 전체를 다시 그리거나 다시 읽어 주지 않는다. 값이 그대로면 아무것도 하지 않는다) */
+  function updateNowRow() {
+    const row = host.querySelector('.reco__now');
+    if (!row || !showsCard()) return;
+    const vm = makeVm();
+    const key = `${vm.nowText}|${vm.untilText}`;
+    if (row.dataset.key === key) return;
+    row.outerHTML = renderNowRow(vm);
+    host.querySelector('.reco__now').dataset.key = key;
   }
 
   /** 확인 시각 줄만 바꾼다. (카드 전체를 다시 읽어 주지 않도록) */
@@ -497,6 +522,7 @@ export function renderResult({ main }, ctx) {
       clearInterval(timer); // 다른 화면으로 이동했다.
       return;
     }
+    updateNowRow(); // 1분마다 "지금" 줄의 시각과 남은 시간을 새로 쓴다.
     const screen = screenOf();
     if (screen === 'arrived') {
       clearInterval(timer); // 도착한 편은 더 확인하지 않는다. (호출 한도)
