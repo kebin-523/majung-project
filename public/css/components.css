@@ -524,13 +524,6 @@ select.field__input { color: var(--color-ink); }
 .ticket__stub::after { right: calc(var(--space-3) * -0.75); }
 
 /* 다정한 말풍선: 모서리 20px, 한쪽만 4px */
-.bubble {
-  padding: var(--space-2) var(--space-3);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-bubble) var(--radius-bubble) var(--radius-bubble) var(--radius-bubble-tail);
-  background: var(--color-cream);
-  color: var(--color-ink);
-}
 
 .reco__time-row { display: flex; align-items: center; gap: var(--space-2) var(--space-2); flex-wrap: wrap; }
 .reco__time-group { display: flex; flex-direction: column; }
@@ -552,23 +545,25 @@ select.field__input { color: var(--color-ink); }
 /* 부제 "추천 출발 시간": 추천 시각 숫자 바로 위의 한 줄. 라벨 글자(14px SemiBold, Warm Gray) */
 .reco__subtitle { margin: 0; font-size: var(--fs-chip); line-height: var(--lh-chip); font-weight: 600; color: var(--color-warm-gray); }
 
-/* 상태 배지: 아이콘 + 문구, 색만으로 구분하지 않는다 */
-.badge {
+/* 상태 줄 (DesignGuide 6장, 가정): 말풍선이 아니라 다른 구역과 같은 구분선이 있는 평평한 한 줄. 왼쪽 원형 아이콘 + 한 문장 */
+.ticket__section.ticket__status { flex-direction: row; align-items: flex-start; gap: var(--space-3); }
+
+.ticket__status-icon {
+  flex: none;
   display: inline-flex;
   align-items: center;
-  gap: var(--space-2);
-  padding: var(--space-1) var(--space-3);
-  border-radius: var(--radius-pill);
-  font-size: var(--fs-chip);
-  line-height: var(--lh-chip);
-  font-weight: 600;
+  justify-content: center;
+  width: var(--space-5);
+  height: var(--space-5);
+  border-radius: 50%;
 }
 
-.badge--relaxed { background: var(--color-cream); color: var(--color-leaf); }
-.badge--soon { background: var(--color-amber); color: var(--color-ink); }
-.badge--changed { background: var(--color-cream); color: var(--color-dusk-blue); }
-.badge--stale { background: var(--color-cream); color: var(--color-sunset-deep); }
-.badge--passed { background: var(--color-sunset); color: var(--color-on-sunset); }
+.ticket__status-text { margin: 0; padding-top: var(--space-1); font-weight: 600; }
+
+/* 원 색: 지남 = Sunset + 흰색, 곧 출발 = Departure Amber(출발 신호) + Ink, 착륙 = Dusk Blue + 흰색. 문장은 항상 Ink */
+.ticket__status--passed .ticket__status-icon { background: var(--color-sunset); color: var(--color-on-sunset); }
+.ticket__status--soon .ticket__status-icon { background: var(--color-amber); color: var(--color-ink); }
+.ticket__status--touchdown .ticket__status-icon { background: var(--color-dusk-blue); color: var(--color-on-sunset); }
 
 /* 근거 칩 (높이 44px, 알약). 좁은 화면에서는 줄바꿈 */
 .chips { display: flex; flex-wrap: wrap; gap: var(--space-2); margin: 0; padding: 0; list-style: none; }
@@ -788,7 +783,7 @@ body.sheet-open { overflow: hidden; }
 /* 도착 정보가 바뀌어 다시 계산될 때: 시각 숫자 교체 (400ms) */
 .reco__time.is-updated--large { animation-duration: var(--dur-large); }
 
-/* 출발할 시간이 되었을 때: 시각 옆 "곧 나갈 시간이에요" 태그가 한 번만 살짝 커졌다 돌아온다 (250ms) */
+/* 출발할 시간이 되었을 때: 상태 줄의 아이콘 원이 한 번만 살짝 커졌다 돌아온다 (250ms) */
 .is-pulse { animation: pill-pulse var(--dur-base) var(--ease) 1; }
 
 @keyframes pill-pulse {

@@ -84,52 +84,68 @@ test('카드: 항적선 그래픽·"출발을 추천해요" 알약·별도 안�
   assert.ok(!html.includes('출발을 추천해요')); // 부제 "추천 출발 시간"이 그 뜻을 알려 준다
 });
 
-test('카드: 추천 시각 위에 부제 "추천 출발 시간", 시각 옆에 상태 태그가 같은 줄(.reco__time-row)에 있다 (태그가 나오는 상태)', () => {
-  const html = card(vmOf({ now: LATE }));
-  const subtitle = html.indexOf('<p class="reco__subtitle">추천 출발 시간</p>');
-  const row = html.indexOf('class="reco__time-row"');
-  const time = html.indexOf('class="reco__time ');
-  const badge = html.indexOf('class="badge ');
-  const rowEnd = html.indexOf('</div>\n      </div>', row);
-  assert.ok(subtitle >= 0 && subtitle < row && row < time && time < badge, [subtitle, row, time, badge].join());
-  assert.ok(badge < rowEnd, '상태 태그가 시각 줄 안에 있어야 한다');
-  assert.equal(html.split('class="badge ').length - 1, 1); // 태그는 하나뿐이다
+test('카드: 추천 시각 위에 부제 "추천 출발 시간"이 있고, 시각 옆에는 알약·태그가 없다 (어떤 상태에서도)', () => {
+  const states = [vmOf(), vmOf({ now: LATE }), vmOf({ hasChange: true }), vmOf({ flight: flight({ fetchedAt: NOW - minutes(30), receivedAt: NOW - minutes(30) }) })];
+  for (const vm of states) {
+    const html = card(vm);
+    const subtitle = html.indexOf('<p class="reco__subtitle">추천 출발 시간</p>');
+    const row = html.indexOf('class="reco__time-row"');
+    const rowHtml = html.slice(row, html.indexOf('class="route-group"'));
+    assert.ok(subtitle >= 0 && subtitle < row, vm.badgeKey);
+    assert.ok(rowHtml.includes('class="reco__time '), vm.badgeKey);
+    assert.ok(!rowHtml.includes('badge') && !rowHtml.includes('pill'), `${vm.badgeKey}: 시각 옆에 아무것도 없어야 한다`);
+    assert.ok(!html.includes('class="badge '), vm.badgeKey);
+  }
 });
 
-test('카드: 평소 상태("여유 있어요")에는 말풍선과 시각 옆 태그를 만들지 않는다', () => {
+test('카드: 평소 상태("여유 있어요")에는 상태 줄도 태그도 만들지 않는다', () => {
   const vm = vmOf();
   assert.equal(vm.badgeKey, 'relaxed');
-  assert.equal(vm.bubbleText, null);
+  assert.equal(vm.statusText, null);
   const html = card(vm);
   assert.ok(!html.includes('여유 있어요'));
-  assert.ok(!html.includes('class="badge '));
-  assert.ok(!html.includes('class="bubble"'));
+  assert.ok(!html.includes('ticket__status'));
   assert.ok(!html.includes('곧 만나겠네요'));
   assert.ok(html.includes('class="reco__time ')); // 추천 시각은 그대로 있다
 });
 
-test('카드: 알려야 하는 상태는 시각 옆 태그로 남는다 (지남 · 도착 변경 · 최신 정보 확인 못 함 · 곧 출발)', () => {
+test('카드: 알려야 하는 상태는 "상태 줄" 하나로 알린다 (지남 · 곧 출발 · 착륙)', () => {
   const cases = [
-    [vmOf({ now: LATE }), 'passed', '추천 출발 시각이 지났어요'],
-    [vmOf({ hasChange: true }), 'changed', '도착 시각이 바뀌었어요'],
-    [vmOf({ flight: flight({ fetchedAt: NOW - minutes(30), receivedAt: NOW - minutes(30) }) }), 'stale', '최신 정보를 확인하지 못했어요'],
-    [vmOf({ now: toMs('2026-10-30 18:40'), flight: flight({ fetchedAt: toMs('2026-10-30 18:40'), receivedAt: toMs('2026-10-30 18:40') }) }), 'soon', '곧 나갈 시간이에요'], // 추천 시각 19:20 의 40분 전, 항공편 확인은 방금
+    [vmOf({ now: LATE }), 'passed', '추천 출발 시각이 지났어요. 이동 시간을 다시 확인해 볼까요?'],
+    [vmOf({ now: toMs('2026-10-30 18:40'), flight: flight({ fetchedAt: toMs('2026-10-30 18:40'), receivedAt: toMs('2026-10-30 18:40') }) }), 'soon', '곧 나갈 시간이에요.'], // 추천 시각 19:20 의 40분 전
+    [vmOf({ flight: flight({ status: 'touchdown' }) }), 'touchdown', '비행기가 착륙했어요, 입국 절차가 끝나면 만날 수 있어요.'],
   ];
-  for (const [vm, key, text] of cases) {
-    assert.equal(vm.badgeKey, key);
+  for (const [vm, kind, text] of cases) {
+    assert.equal(vm.statusKind, kind);
     const html = card(vm);
-    assert.ok(html.includes(text), text);
-    assert.equal(html.split('class="badge ').length - 1, 1, text);
+    assert.ok(html.includes(`class="ticket__section ticket__status ticket__status--${kind}`), kind);
+    assert.ok(html.includes(`<p class="ticket__status-text">${text}</p>`), kind);
+    assert.equal(html.split('class="ticket__status-text"').length - 1, 1, `${kind}: 상태 줄은 하나뿐이다`);
   }
 });
 
-test('카드: 지남·착륙 안내 말풍선은 남는다 (평소 문구만 뺐다)', () => {
-  const passed = vmOf({ now: LATE });
-  assert.equal(passed.bubbleText, '추천 출발 시각이 지났어요. 이동 시간을 다시 확인해 볼까요?');
-  assert.ok(card(passed).includes('class="bubble"'));
-  const touchdown = vmOf({ flight: flight({ status: 'touchdown' }) });
-  assert.equal(touchdown.bubbleText, '비행기가 착륙했어요, 입국 절차가 끝나면 만날 수 있어요.');
-  assert.ok(card(touchdown).includes('비행기가 착륙했어요'));
+test('카드: 같은 말을 두 번 보여 주지 않는다 ("추천 출발 시각이 지났어요"는 카드 전체에서 한 번)', () => {
+  const html = card(vmOf({ now: LATE }));
+  assert.equal(html.split('추천 출발 시각이 지났어요').length - 1, 1);
+});
+
+test('카드: 상태 줄은 아이콘(꾸밈, 화면 읽기에서 숨김) + 문장이고, 상태마다 아이콘이 다르거나 색·문구로 구분한다', () => {
+  const passed = card(vmOf({ now: LATE }));
+  assert.match(passed, /<span class="ticket__status-icon" aria-hidden="true">[\s\S]*?class="icon"/);
+  const touchdown = card(vmOf({ flight: flight({ status: 'touchdown' }) }));
+  assert.notEqual(passed.match(/--icon:url\('([^']+)'/)[1], touchdown.match(/--icon:url\('([^']+)'/)[1]); // 지남은 시계, 착륙은 비행기
+  assert.ok(!/<(button|a)\b/.test(passed.slice(passed.indexOf('ticket__status'), passed.indexOf('reco__subtitle')))); // 상태 줄 안에는 버튼이 없다
+});
+
+test('카드: 도착 변경·최신 정보 확인 못 함은 상태 줄을 만들지 않고, 확인 시각 줄과 변경 안내가 각각 알린다', () => {
+  const changed = vmOf({ hasChange: true });
+  assert.equal(changed.badgeKey, 'changed');
+  assert.ok(!card(changed).includes('ticket__status'));
+  const stale = vmOf({ flight: flight({ fetchedAt: NOW - minutes(30), receivedAt: NOW - minutes(30) }) });
+  assert.equal(stale.badgeKey, 'stale');
+  const html = card(stale);
+  assert.ok(!html.includes('ticket__status'));
+  assert.ok(html.includes('마지막 확인은 13:30예요.') && html.includes('최신 정보를 확인하지 못했어요')); // 쪽지의 확인 시각 줄
 });
 
 test('이동 구간에는 "이동 N분 / 자동차 기준"만 있고 확인 시각 줄은 없다', () => {
@@ -166,9 +182,9 @@ test('카드: 확인 시각 줄 옆에 새로고침 아이콘 버튼이 있고, 
   assert.ok(html.indexOf('reco__foot') < html.indexOf('reco__checked') && html.indexOf('reco__checked') < html.indexOf('data-action="refresh"'));
 });
 
-test('카드: 구성 순서는 줄무늬 띠 → 말풍선 → 추천 시각 → 상태 배지 → 근거 → 쪽지(확인 시각 줄) (말풍선·태그가 나오는 상태)', () => {
+test('카드: 구성 순서는 줄무늬 띠 → 상태 줄 → 추천 시각 → 근거 → 쪽지(확인 시각 줄) (상태 줄이 나오는 상태)', () => {
   const html = card(vmOf({ now: LATE }));
-  const positions = ['class="ticket__band"', 'class="bubble"', 'class="reco__time ', 'class="badge ', 'class="route"', 'class="ticket__stub"', 'class="caption reco__checked"'].map((text) => html.indexOf(text));
+  const positions = ['class="ticket__band"', 'ticket__status ', 'class="reco__time ', 'class="route"', 'class="ticket__stub"', 'class="caption reco__checked"'].map((text) => html.indexOf(text));
   assert.ok(positions.every((index) => index >= 0), String(positions));
   assert.deepEqual(positions, [...positions].sort((a, b) => a - b));
   assert.ok(html.includes('실제 도착과 교통에 따라 달라질 수 있어요')); // 추정치 안내는 지우지 않는다
@@ -247,14 +263,14 @@ test('뷰모델: 선택한 항공편의 편명·항공사·출발 도시와 도�
   assert.equal(bare.departureCity, null);
 });
 
-test('항공편 정보 칸: 왼쪽 편명·항공사, 오른쪽 "도시 출발"과 "날짜 도착"이고 카드 맨 위(말풍선 앞)에 있다', () => {
+test('항공편 정보 칸: 왼쪽 편명·항공사, 오른쪽 "도시 출발"과 "날짜 도착"이고 카드 맨 위(상태 줄 앞)에 있다', () => {
   const html = card(vmOf({ flight: flight(picked), now: LATE }));
   assert.ok(html.includes('role="group" aria-label="선택한 항공편"'));
   assert.ok(html.includes('class="ticket__flight-no">VZ850<'));
   assert.ok(html.includes('타이비엣젯항공'));
   assert.ok(html.includes('방콕/수완나품 출발'));
   assert.ok(html.includes('오늘 · 10월 30일 도착'));
-  const order = ['class="ticket__band"', 'ticket__flight"', 'class="bubble"'].map((text) => html.indexOf(text));
+  const order = ['class="ticket__band"', 'ticket__flight"', 'ticket__status '].map((text) => html.indexOf(text));
   assert.ok(order.every((index) => index >= 0) && order[0] < order[1] && order[1] < order[2], String(order));
 });
 
@@ -269,24 +285,25 @@ test('항공편 정보 칸: 값이 없는 항목은 만들지 않고, 보여 줄
   assert.ok(noCity.includes('아시아나항공') && !noCity.includes('ticket__flight-city'));
 });
 
-test('윗 선이 없는 "맨 위 구역"은 항공편 정보 칸 → 말풍선 → 추천 시각 순으로 가장 위에 있는 구역 하나뿐이다', () => {
+test('윗 선이 없는 "맨 위 구역"은 항공편 정보 칸 → 상태 줄 → 추천 시각 순으로 가장 위에 있는 구역 하나뿐이다', () => {
   const first = (html) => html.split('ticket__section--first').length - 1;
-  const quiet = card(vmOf()); // 항공편 정보도 말풍선도 없다
+  const quiet = card(vmOf()); // 항공편 정보도 상태 줄도 없다
   assert.equal(first(quiet), 1);
   assert.ok(quiet.includes('class="ticket__section ticket__hero ticket__section--first"'));
 
-  const bubbleOnly = card(vmOf({ now: LATE })); // 말풍선만
-  assert.equal(first(bubbleOnly), 1);
-  assert.ok(bubbleOnly.includes('<div class="ticket__section ticket__section--first">'));
+  const statusOnly = card(vmOf({ now: LATE })); // 상태 줄만
+  assert.equal(first(statusOnly), 1);
+  assert.match(statusOnly, /ticket__status--passed ticket__section--first/);
+  assert.ok(statusOnly.includes('class="ticket__section ticket__hero"')); // 추천 시각 구역에는 윗 선이 있다
 
   const headerOnly = card(vmOf({ flight: flight(picked) })); // 항공편 정보만
   assert.equal(first(headerOnly), 1);
   assert.ok(headerOnly.includes('ticket__flight ticket__section--first') || headerOnly.includes('ticket__section--first ticket__flight'));
-  assert.ok(headerOnly.includes('class="ticket__section ticket__hero"')); // 추천 시각 구역에는 윗 선이 있다
+  assert.ok(headerOnly.includes('class="ticket__section ticket__hero"'));
 
   const both = card(vmOf({ flight: flight(picked), now: LATE })); // 둘 다
   assert.equal(first(both), 1);
-  assert.ok(both.includes('<div class="ticket__section">')); // 말풍선 구역은 윗 선이 있는 일반 구역
+  assert.ok(!/ticket__status--passed ticket__section--first/.test(both)); // 상태 줄은 윗 선이 있는 일반 구역
 });
 
 test('항공편 정보 칸: 외부 데이터는 이스케이프한다', () => {

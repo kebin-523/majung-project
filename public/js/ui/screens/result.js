@@ -15,7 +15,7 @@
 //   시나리오 모드의 목업 항공편에는 터미널이 없으므로 이 규칙을 쓰지 않는다. 도착 · 운항 상태 확인 필요 안내가 먼저다.
 // - 착륙한 항공편은 추천 카드를 유지하고 말풍선만 바꾼다. (근거 칩의 비행기 도착 시각은 그대로 보여 준다)
 // - 확인 시각 줄의 새로고침 버튼: 항공편을 다시 확인하고, 도착 시각이 바뀌지 않았어도 이동 시간을 다시 조회해 추천 시각을 다시 계산한다. (호출은 한 번에 항공편 1 + 이동 시간 1, 확인하는 동안 버튼을 막는다)
-// - 모션: 카드 등장, 값이 바뀔 때의 숫자 교체(여유 저장 250ms, 도착 변경 400ms), "곧 나갈 시간이에요" 태그 한 번 커졌다 돌아옴.
+// - 모션: 카드 등장, 값이 바뀔 때의 숫자 교체(여유 저장 250ms, 도착 변경 400ms), "곧 나갈 시간이에요" 상태 줄의 아이콘 한 번 커졌다 돌아옴.
 import { getFlight } from '../../adapters/flightAdapter.js';
 import { getDriveTime } from '../../adapters/routeAdapter.js';
 import { DEFAULT_AIRPORT_BUFFER_MIN, DEFAULT_MEETUP_MIN, STATUS_RECHECK_INTERVAL_MS } from '../../config.js';
@@ -37,11 +37,21 @@ import { renderTimeline } from '../components/routeTimeline.js';
 import { renderCheckedLine, renderRecommendCardContent } from '../components/recommendCard.js';
 import { icon } from '../components/icon.js';
 
-// 평소 상태에는 말풍선을 두지 않는다. (사용자 요청) 알려야 하는 두 경우(지남 · 착륙)만 남긴다.
-const BUBBLES = {
+// 카드의 "상태 줄": 알려야 하는 경우(지남 · 착륙 · 곧 출발)에만 한 문장을 보여 준다. 평소 상태에는 없다. (사용자 요청)
+// 도착 변경은 카드 위의 변경 안내가, 최신 정보 확인 못 함은 쪽지의 확인 시각 줄이 알리므로 여기서는 다시 말하지 않는다.
+const STATUS_TEXT = {
   passed: '추천 출발 시각이 지났어요. 이동 시간을 다시 확인해 볼까요?',
   touchdown: '비행기가 착륙했어요, 입국 절차가 끝나면 만날 수 있어요.',
+  soon: '곧 나갈 시간이에요.',
 };
+
+/** 상태 줄 종류. 우선순위: 지남 > 착륙 > 곧 출발. 도착 변경·오래됨이 곧 출발보다 앞서므로(badgeKey 우선순위) 그때는 곧 출발을 말하지 않는다. */
+function statusKindOf(badgeKey, touchdown) {
+  if (badgeKey === 'passed') return 'passed';
+  if (touchdown) return 'touchdown';
+  if (badgeKey === 'soon') return 'soon';
+  return null;
+}
 
 const MESSAGES = {
   arrived: '이 항공편은 이미 도착했어요. 입국 절차를 마친 뒤에 만날 수 있어요. 다른 항공편을 찾아볼까요?',
@@ -76,8 +86,10 @@ export function buildResultViewModel({ flight, drive, buffers, now, hasChange = 
     departure: departureMs,
     lastChecked: lastConfirmedAt(flight),
     hasUnseenChange: hasChange, // status.js의 이름은 "unseen"이지만, 여기서는 "변경이 있었음"을 배지로 남기는 데 쓴다.
-    // landed 는 넘기지 않는다. 도착한 편은 이 함수를 부르기 전에 안내 상자로 가므로, 'landed' 배지가 카드에 들어가 renderBadge 가 던지는 일이 없다.
+    // landed 는 넘기지 않는다. 도착한 편은 이 함수를 부르기 전에 안내 상자로 가므로, 카드의 상태 줄에 'landed' 가 들어가는 일이 없다.
   });
+
+  const statusKind = statusKindOf(badgeKey, resolveFlightView(flight).touchdown);
 
   // 추천 시각이 도착 날짜와 다른 날이거나 오늘이 아니면(자정 전후) 날짜 라벨을 함께 보여 준다.
   const showDay = !isSameDayKst(departureMs, arrival) || !isSameDayKst(departureMs, now);
@@ -88,8 +100,9 @@ export function buildResultViewModel({ flight, drive, buffers, now, hasChange = 
     dayText: showDay ? dayLabel(departureMs, now) : null,
     timeText: formatClock(departureMs),
     timeSpoken: formatSpoken(departureMs),
-    // 추천 시각이 지났다면 "지남" 안내가 먼저다. 그 밖에 착륙한 편은 말풍선만 바꾼다.
-    bubbleText: badgeKey === 'passed' ? BUBBLES.passed : resolveFlightView(flight).touchdown ? BUBBLES.touchdown : null,
+    // 상태 줄: 추천 시각이 지났다면 "지남"이 먼저다. 그 밖에 착륙한 편, 곧 출발일 때만 있다.
+    statusKind,
+    statusText: statusKind === null ? null : STATUS_TEXT[statusKind],
     arrivalText: formatClockWithDay(arrival, now),
     arrivalSpoken: formatSpokenWithDay(arrival, now),
     travelMin: drive.minutes,
@@ -265,10 +278,10 @@ export function renderResult({ main }, ctx) {
       if (animate === 'change') time?.classList.add('is-updated--large');
     }
 
-    // 곧 나갈 시간이 되면 "출발" 배지가 한 번만 살짝 커졌다 돌아온다.
-    if (lastVm.badgeKey === 'soon' && !pulsed) {
+    // 곧 나갈 시간이 되면 상태 줄의 아이콘이 한 번만 살짝 커졌다 돌아온다.
+    if (lastVm.statusKind === 'soon' && !pulsed) {
       pulsed = true;
-      host.querySelector('.reco__time-row .badge')?.classList.add('is-pulse');
+      host.querySelector('.ticket__status--soon .ticket__status-icon')?.classList.add('is-pulse');
     }
 
     getBufferChip()?.addEventListener('click', openSheet);
