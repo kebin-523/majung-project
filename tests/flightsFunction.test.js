@@ -175,6 +175,27 @@ test('응답과 로그에 서비스 키가 없다', async () => {
   assert.ok(logged.every((line) => !line.includes(KEY) && !line.includes(encodeURIComponent(KEY))));
 });
 
+test('실패 로그에 메시지·HTTP 상태·본문 앞부분·keyEmpty 가 남고 키는 가려진다', async () => {
+  await run(SEARCH, { status: 502, text: `Bad Gateway ${KEY} ${'x'.repeat(500)}` });
+  const upstreamLog = logged.at(-1);
+  assert.match(upstreamLog, /httpStatus=502/);
+  assert.match(upstreamLog, /body=Bad Gateway \*\*\*/);
+  assert.match(upstreamLog, /keyEmpty=false/);
+  assert.ok(upstreamLog.length < 400);
+  assert.ok(!upstreamLog.includes(KEY));
+
+  const failure = new Error(`failed for serviceKey=${KEY}`);
+  failure.name = 'TypeError';
+  await run(SEARCH, failure);
+  const thrownLog = logged.at(-1);
+  assert.match(thrownLog, /TypeError: failed for serviceKey=\*\*\*/);
+  assert.match(thrownLog, /keyEmpty=false/);
+  assert.ok(!thrownLog.includes(KEY) && !thrownLog.includes(encodeURIComponent(KEY)));
+
+  await run(SEARCH, { text: body([row()]) }, { apiKey: undefined });
+  assert.match(logged.at(-1), /keyEmpty=true/);
+});
+
 test('키가 없으면 외부를 부르지 않고 config', async () => {
   for (const apiKey of [undefined, '', '   ']) {
     const { response, calls } = await run(SEARCH, { text: body([row()]) }, { apiKey });

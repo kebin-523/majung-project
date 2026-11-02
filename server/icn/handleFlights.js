@@ -16,7 +16,7 @@
 //   헤더 이름과 뜻은 docs.netlify.com "Caching overview" 로 확인했다: Netlify-CDN-Cache-Control 은 Netlify CDN 에만 적용되고,
 //   Cache-Control 은 브라우저에도 적용된다. 브라우저는 매번 다시 확인(max-age=0, must-revalidate)하게 두고 CDN 만 5분 캐시한다.
 //   서버리스 함수 응답은 쿼리 문자열이 기본으로 캐시 키에 들어가지만, 같은 URL 이 항상 같은 Netlify-Vary 값을 주도록 모든 응답에 붙인다.
-import { classifyThrown } from './classifyError.js';
+import { classifyThrown, redactSecrets } from './classifyError.js';
 import { interpretArrivalsResponse } from './normalizeArrivals.js';
 
 export const ARRIVALS_URL = 'https://apis.data.go.kr/B551177/StatusOfPassengerFlightsDeOdp/getPassengerArrivalsDeOdp';
@@ -146,10 +146,13 @@ export async function handleFlights(request, { apiKey, fetch: fetchImpl, now, ti
   if (query === null) return failure('config', 400);
 
   const serviceKey = readServiceKey(apiKey);
-  if (serviceKey === null) {
-    console.error('[flights] config: 서비스 키가 설정되지 않았어요.');
+  // 키 값은 절대 로그에 남기지 않는다. 비어 있는지(true/false)만 남긴다.
+  const keyEmpty = serviceKey === null;
+  if (keyEmpty) {
+    console.error(`[flights] config: 서비스 키가 설정되지 않았어요. keyEmpty=${keyEmpty}`);
     return failure('config');
   }
+  const secrets = [serviceKey, typeof apiKey === 'string' ? apiKey.trim() : ''];
 
   const fetchedAt = now();
   let status;
@@ -162,8 +165,11 @@ export async function handleFlights(request, { apiKey, fetch: fetchImpl, now, ti
     status = upstream.status;
     text = await upstream.text();
   } catch (error) {
-    // 오류 객체 전체는 키가 든 주소를 담을 수 있어 이름만 남긴다.
-    console.error(`[flights] ${classifyThrown()}: ${error?.name ?? 'Error'}`);
+    // 오류 객체 전체는 키가 든 주소를 담을 수 있어 메시지만 꺼내 키를 가리고 남긴다. (응답을 못 받았으니 HTTP 상태·본문은 없다)
+    const message = redactSecrets(error?.message ?? String(error), secrets);
+    console.error(
+      `[flights] ${classifyThrown()} (${query.mode}) fetch 실패 ${error?.name ?? 'Error'}: ${message} | httpStatus=none body=none keyEmpty=${keyEmpty}`,
+    );
     return failure(classifyThrown());
   }
 
@@ -172,7 +178,11 @@ export async function handleFlights(request, { apiKey, fetch: fetchImpl, now, ti
     { mode: query.mode, fid: query.fid, fetchedAt },
   );
   if (!result.ok) {
-    console.error(`[flights] ${result.reason} (${query.mode})`);
+    // 공항 API 가 돌려준 HTTP 상태와 본문 앞부분(키는 가리고 200자까지)을 남긴다.
+    const bodyHead = redactSecrets(text, secrets).replace(/\s+/g, ' ');
+    console.error(
+      `[flights] ${result.reason} (${query.mode}) | httpStatus=${status} body=${bodyHead} keyEmpty=${keyEmpty}`,
+    );
     return failure(result.reason);
   }
   return respond({ ...result, fetchedAt }, 200, SUCCESS_HEADERS);
