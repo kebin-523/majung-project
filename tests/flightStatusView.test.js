@@ -41,7 +41,7 @@ test('착륙한 편은 추천 카드를 유지하고 상태 줄 문장만 바뀐
 });
 
 test('착륙한 편도 추천 시각이 지났다면 "지남" 상태 줄이 먼저다', () => {
-  const vm = view({ status: 'touchdown' }, 60);
+  const vm = view({ status: 'touchdown' }, 30); // 추천 출발은 도착 40분 전(이동 60 + 공항 여유 20 − 입국 후 만남 40)이라 이미 10분 지났다
   assert.equal(vm.badgeKey, 'passed');
   assert.equal(vm.statusText, '추천 출발 시각이 지났어요. 이동 시간을 다시 확인해 볼까요?');
   assert.equal(vm.statusKind, 'passed');
@@ -54,7 +54,7 @@ test('평소 상태에는 상태 줄이 없다 (null)', () => {
 });
 
 test('곧 출발할 때는 "곧 나갈 시간이에요." 상태 줄이 나온다', () => {
-  const vm = view({ status: 'none' }, 150); // 비행기 도착 150분 뒤, 추천 출발은 30분 뒤
+  const vm = view({ status: 'none' }, 70); // 비행기 도착 70분 뒤, 추천 출발은 30분 뒤
   assert.equal(vm.badgeKey, 'soon');
   assert.equal(vm.statusText, '곧 나갈 시간이에요.');
   assert.equal(vm.statusKind, 'soon');

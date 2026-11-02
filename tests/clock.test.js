@@ -25,7 +25,7 @@ test('실제 모드는 실제 시각, 시나리오 모드는 데모 시계(14:00
   assert.equal(partsKst(clockNow()).h, 14);
 
   globalThis.location = { search: '?scenario=passed' };
-  assert.equal(partsKst(clockNow()).h, 16);
+  assert.equal(partsKst(clockNow()).h, 17);
 });
 
 test('오늘 날짜는 두 모드 모두 실제 한국 날짜다', () => {

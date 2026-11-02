@@ -61,12 +61,12 @@ export function renderFlightHeader(vm) {
  */
 export function renderNowRow(vm) {
   return `<div class="reco__now" aria-live="off">
+          <span class="reco__until reco__until--${vm.untilKind}">${vm.untilText}</span>
           <span class="reco__now-clock">
             <span class="reco__now-label">지금</span>
             <span class="reco__now-time tabular" aria-hidden="true">${vm.nowText}</span>
             <span class="sr-only">지금 ${vm.nowSpoken}</span>
           </span>
-          <span class="reco__until reco__until--${vm.untilKind}">${vm.untilText}</span>
         </div>`;
 }
 

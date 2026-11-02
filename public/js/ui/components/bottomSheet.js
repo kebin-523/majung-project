@@ -123,12 +123,12 @@ export function closeCurrentSheet() {
 }
 
 /* ───────────────────── ② 여유 시간 정하기 (내용) ───────────────────── */
-// 항목 2개를 −/+ 로 조절한다.  1. 공항 도착 여유   2. 입국 후 만남까지 예상 시간
+// 항목 2개를 −/+ 로 조절한다.  1. 도착 후 대기(= 공항 도착 여유)   2. 입국 후 만남까지 예상 시간
 // 조절 중인 값은 임시값이며, "저장"을 눌러야 반영된다. (Esc·바깥 누르기는 저장하지 않고 닫는다.)
 
 const FIELDS = [
-  { key: 'airportBufferMin', label: '공항 도착 여유', hint: '미리 도착해 있고 싶은 시간' },
-  { key: 'meetupMin', label: '입국 후 만남까지', hint: '비행기 도착 뒤 만나기까지 걸릴 것으로 예상하는 시간' },
+  { key: 'airportBufferMin', label: '도착 후 대기', hint: '터미널에 도착해서 승객이 나올 때까지 기다릴 시간' },
+  { key: 'meetupMin', label: '입국 후 만남까지', hint: '비행기 도착 뒤 승객을 만나기까지 걸릴 것으로 예상하는 시간' },
 ];
 
 function stepperHtml({ key, label, hint }, value) {

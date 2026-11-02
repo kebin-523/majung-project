@@ -1,4 +1,4 @@
-// 추천 카드의 구성: 비행기 티켓 모양(줄무늬 띠 · 구역 · 쪽지), 근거(출발지 → 이동 → 공항 → 여유 → 비행기 도착), 합쳐진 추천 문구, 새로고침 버튼.
+// 추천 카드의 구성: 비행기 티켓 모양(줄무늬 띠 · 구역 · 쪽지), 시간표(출발 → 이동 → 터미널 도착 → 여유 → 만날 수 있는 시각), 합쳐진 추천 문구, 새로고침 버튼.
 // DOM 접근 없는 함수만 확인한다. (색·배치는 CSS라 단위 테스트로 확인하지 않는다)
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -17,7 +17,7 @@ const origin = { name: '합정역', address: '서울 마포구 양화로 지하 
 const flight = (overrides = {}) => ({
   scheduled: toMs('2026-10-30 21:00'), changed: null, status: 'none', fetchedAt: NOW, receivedAt: NOW, ...overrides,
 });
-const LATE = toMs('2026-10-30 21:30'); // 추천 시각 19:20 이 이미 지난 때: 말풍선과 상태 태그가 모두 나오는 상태
+const LATE = toMs('2026-10-30 21:30'); // 추천 시각 20:40 이 이미 지난 때: 말풍선과 상태 태그가 모두 나오는 상태
 const vmOf = (overrides = {}) => buildResultViewModel({ flight: flight(), drive, buffers, now: NOW, origin, ...overrides });
 const card = (vm) => renderRecommendCardContent({ ...vm, timelineHtml: renderTimeline(vm) });
 
@@ -36,45 +36,87 @@ test('뷰모델: 출발지 정보가 없으면 null (없는 값을 만들지 않
   assert.equal(vmOf({ origin: { name: '서울역', address: '' } }).originAddress, null);
 });
 
-test('시간표: 출발 → 이동 → 터미널 도착 → 여유 → 비행기 도착 순서이고 칩 모양이 없다', () => {
+test('시간표: 출발(이동) → 터미널 도착(도착 후 대기) → 만날 수 있는 시각(비행기 도착 · 입국 후) 순서이고 칩 모양이 없다', () => {
   const html = renderTimeline(vmOf());
-  const order = ['합정역', '이동 40분', '자동차 기준', '인천공항', '여유 60분', '비행기 도착'].map((text) => html.indexOf(text));
+  const order = ['합정역', '>자동차 이동<', '인천공항', '>도착 후 대기<', '만날 수 있는 시각', '>비행기 도착<', '>입국 후 만남까지<'].map((text) => html.indexOf(text));
   assert.ok(order.every((index) => index >= 0), String(order));
   assert.deepEqual(order, [...order].sort((a, b) => a - b));
   assert.ok(html.includes('서울 마포구 양화로 지하 55')); // 출발지를 한 번 더 알아볼 수 있게 주소도 보여 준다
   assert.ok(!html.includes('class="chip') && !html.includes('class="chips"'));
 });
 
-test('시간표: 여유 구간은 수정 버튼(바텀시트 연결용 data-chip, 읽기용 이름)이고 묶음 이름이 있다', () => {
+test('시간표: 설정값(도착 후 대기 · 입국 후 만남까지)마다 "변경" 글자 버튼이 있고(아이콘 없음), 바텀시트 연결용 data-chip과 읽기용 이름이 있다', () => {
   const html = renderTimeline(vmOf());
-  assert.match(html, /<button class="itinerary__edit"[^>]*data-chip="buffer"[^>]*aria-haspopup="dialog"/);
-  assert.ok(html.includes('aria-label="여유 시간 60분, 수정하려면 누르세요"'));
+  const buttons = [...html.matchAll(/<button class="itinerary__change"([^>]*)>([\s\S]*?)<\/button>/g)];
+  assert.equal(buttons.length, 2);
+  const [airport, meetup] = buttons;
+  assert.ok(airport[1].includes('data-chip="buffer"') && airport[1].includes('data-chip-row="airport"') && airport[1].includes('aria-haspopup="dialog"'));
+  assert.ok(airport[1].includes('aria-label="도착 후 대기 20분, 변경하려면 누르세요"'));
+  assert.ok(meetup[1].includes('data-chip="buffer"') && meetup[1].includes('data-chip-row="meetup"'));
+  assert.ok(meetup[1].includes('aria-label="입국 후 만남까지 40분, 변경하려면 누르세요"'));
+  for (const [, , label] of buttons) assert.equal(label.trim(), '변경'); // 앞뒤 아이콘 없이 글자만
   assert.ok(html.includes('aria-label="추천 시각을 계산한 근거"'));
+  assert.ok(!html.includes('itinerary__edit') && !html.includes('pencil.svg'));
 });
 
-test('시간표: 합계가 맞다 (추천 출발 시각 + 이동 = 터미널 도착, 터미널 도착 + 여유 = 비행기 도착)', () => {
+test('시간표: 이동·대기·입국 후 만남은 블록 안쪽 하단(구분선 아래 행)에 있고, 블록 사이에 따로 떠 있는 구간이 없다', () => {
+  const html = renderTimeline(vmOf());
+  assert.ok(!html.includes('itinerary__leg'));
+  const blockOf = (kind) => {
+    const body = html.slice(html.indexOf(`itinerary__stop--${kind}`));
+    return body.slice(body.indexOf('class="itinerary__block"'), body.indexOf('</li>'));
+  };
+  const depart = blockOf('depart');
+  assert.ok(depart.includes('<dt>자동차 이동</dt>') && depart.includes('>40분<'));
+  assert.ok(depart.indexOf('itinerary__when') < depart.indexOf('itinerary__basis'));
+  const terminal = blockOf('terminal');
+  assert.ok(terminal.includes('<dt>도착 후 대기</dt>') && terminal.includes('>20분<') && terminal.includes('class="itinerary__change"'));
+  assert.ok(terminal.indexOf('itinerary__when') < terminal.indexOf('itinerary__basis'));
+  const meet = blockOf('meet');
+  assert.ok(meet.includes('<dt>비행기 도착</dt>') && meet.includes('<dt>입국 후 만남까지</dt>'));
+  assert.equal(depart.split('class="itinerary__basis"').length - 1, 1);
+  assert.ok(!depart.includes('itinerary__change')); // 이동 시간은 길찾기로 구한 값이라 고치는 버튼이 없다
+});
+
+test('시간표: 도착 후 대기·입국 후 만남에는 "와 있을 시간" 같은 긴 설명 문구를 쓰지 않는다', () => {
+  const html = renderTimeline(vmOf());
+  assert.ok(!html.includes('와 있을 시간') && !html.includes('승객이 나오기 전에'));
+});
+
+test('시간표: 합계가 맞다 (출발 + 이동 = 터미널 도착, 터미널 도착 + 공항 도착 여유 = 만날 시각 = 비행기 도착 + 입국 후 만남)', () => {
   const vm = vmOf();
   assert.equal(vm.departureMs + minutes(vm.travelMin), vm.terminalArrivalMs);
-  assert.equal(vm.terminalArrivalMs + minutes(vm.bufferTotalMin), toMs('2026-10-30 21:00'));
+  assert.equal(vm.terminalArrivalMs + minutes(vm.airportBufferMin), vm.meetAtMs);
+  assert.equal(toMs('2026-10-30 21:00') + minutes(vm.meetupMin), vm.meetAtMs);
 });
 
-test('시간표: 시각 세 개가 왼쪽 한 줄에 시간 순서로 나오고, 걸리는 시간(이동·여유)은 그 사이 구간에 있다', () => {
+test('뷰모델: 공항 도착 여유와 입국 후 만남을 따로 담고, 만날 수 있는 예상 시각은 비행기 도착 + 입국 후 만남이다', () => {
+  const vm = vmOf();
+  assert.equal(vm.airportBufferMin, 20);
+  assert.equal(vm.meetupMin, 40);
+  assert.equal(vm.meetClock, '21:40');
+  assert.equal(vm.meetSpoken, '오후 9시 40분');
+  assert.equal(vm.bufferTotalMin, undefined); // 두 값을 더한 "여유 합계"는 더 이상 쓰지 않는다
+});
+
+test('시간표: 터미널 도착은 비행기 도착보다 늦을 수 있고(입국 후 만남이 더 길 때), 출발 → 터미널 → 만날 시각은 항상 시간 순서다', () => {
+  const vm = vmOf();
+  const times = [vm.departureMs, vm.terminalArrivalMs, vm.meetAtMs];
+  assert.deepEqual(times, [...times].sort((a, b) => a - b));
+  assert.ok(vm.terminalArrivalMs > toMs('2026-10-30 21:00')); // 21:20 > 비행기 도착 21:00
+});
+
+test('시간표: 시각 세 개가 오른쪽 한 줄에 시간 순서로 나온다', () => {
   const html = renderTimeline(vmOf());
   const times = [...html.matchAll(/class="itinerary__time tabular" aria-hidden="true">([^<]+)</g)].map((match) => match[1]);
-  assert.deepEqual(times, ['19:20', '20:00', '21:00']); // 출발 → 터미널 도착 → 비행기 도착
-  const legs = [...html.matchAll(/<li class="itinerary__leg">([\s\S]*?)<\/li>/g)].map((match) => match[1]);
-  assert.equal(legs.length, 2);
-  assert.ok(legs[0].includes('이동 40분') && legs[0].includes('자동차 기준'));
-  assert.ok(legs[1].includes('여유 60분') && legs[1].includes('data-chip="buffer"'));
-  // 시각은 구간 안이 아니라 지점(stop)에만 있다
-  assert.ok(legs.every((leg) => !leg.includes('itinerary__time')));
+  assert.deepEqual(times, ['20:40', '21:20', '21:40']); // 출발 → 터미널 도착 → 만날 수 있는 시각
 });
 
-test('시간표: 지점마다 원형 아이콘(출발=위치, 터미널 도착=자동차, 비행기 도착=비행기)이 왼쪽에, 시각은 내용 뒤 오른쪽 열에 있다', () => {
+test('시간표: 지점마다 원형 아이콘(출발=위치, 터미널 도착=자동차, 만날 수 있는 시각=비행기)이 왼쪽에, 시각은 내용 뒤 오른쪽 열에 있다', () => {
   const html = renderTimeline(vmOf());
   const stops = [...html.matchAll(/<li class="itinerary__stop itinerary__stop--(\w+)">([\s\S]*?)<\/li>/g)];
-  assert.deepEqual(stops.map((match) => match[1]), ['depart', 'terminal', 'arrival']);
-  const iconOf = { depart: 'pin.svg', terminal: 'car.svg', arrival: 'plane.svg' };
+  assert.deepEqual(stops.map((match) => match[1]), ['depart', 'terminal', 'meet']);
+  const iconOf = { depart: 'pin.svg', terminal: 'car.svg', meet: 'plane.svg' };
   for (const [, kind, body] of stops) {
     const badge = body.indexOf('class="itinerary__badge"');
     assert.ok(badge >= 0 && body.includes(iconOf[kind]), kind);
@@ -84,28 +126,53 @@ test('시간표: 지점마다 원형 아이콘(출발=위치, 터미널 도착=�
   assert.ok(!html.includes('itinerary__dot')); // 점은 원형 아이콘으로 바뀌었다
 });
 
-test('시간표: 이동 구간에는 자동차 아이콘이 따로 없다 (터미널 도착 원이 자동차)', () => {
+test('시간표: 이동 행에는 자동차 아이콘이 따로 없다 (터미널 도착 원이 자동차)', () => {
   const html = renderTimeline(vmOf());
-  const leg = html.match(/<li class="itinerary__leg">([\s\S]*?)<\/li>/)[1];
-  assert.ok(!leg.includes('car.svg'));
+  const depart = html.slice(html.indexOf('itinerary__stop--depart'), html.indexOf('itinerary__stop--terminal'));
+  assert.ok(!depart.includes('car.svg'));
 });
 
 test('시간표: 시각마다 화면 읽기용 문구가 따로 있고, 터미널 도착에는 "예상"이 붙는다', () => {
   const html = renderTimeline(vmOf());
-  assert.ok(html.includes('<span class="sr-only">오후 7시 20분</span>'));
-  assert.ok(html.includes('<span class="sr-only">오후 8시</span>'));
-  assert.ok(html.includes('<span class="sr-only">오후 9시</span>'));
-  const terminal = html.slice(html.indexOf('itinerary__stop--terminal'), html.indexOf('itinerary__stop--arrival'));
+  assert.ok(html.includes('<span class="sr-only">오후 8시 40분</span>'));
+  assert.ok(html.includes('<span class="sr-only">오후 9시 20분</span>'));
+  assert.ok(html.includes('<span class="sr-only">오후 9시 40분</span>'));
+  const terminal = html.slice(html.indexOf('itinerary__stop--terminal'), html.indexOf('itinerary__stop--meet'));
   assert.ok(terminal.includes('터미널 도착') && terminal.includes('예상'));
   assert.ok(!terminal.includes('만날')); // 승객을 만나는 시각처럼 읽히지 않게 한다
 });
 
-test('시간표: 비행기 도착 지점에는 항공편명을 함께 보여 준다 (없으면 라벨만)', () => {
-  const withNo = renderTimeline(vmOf({ flight: flight({ flightNo: 'KE2180' }) }));
-  const arrival = withNo.slice(withNo.indexOf('itinerary__stop--arrival'));
-  assert.ok(arrival.includes('비행기 도착') && arrival.includes('KE2180'));
-  const without = renderTimeline(vmOf());
-  assert.ok(!without.slice(without.indexOf('itinerary__stop--arrival')).includes('itinerary__place'));
+test('시간표: 만날 수 있는 시각 블록은 "예상"이라 쓰고, 근거인 비행기 도착 시각과 입국 후 만남(고칠 수 있는 설정값)을 블록 안의 근거 행으로 묶는다', () => {
+  const html = renderTimeline(vmOf());
+  const meet = html.slice(html.indexOf('itinerary__stop--meet'));
+  assert.ok(meet.replace(/ /g, ' ').includes('만날 수 있는 시각 · 예상')); // 좁은 화면에서 안 끊기도록 줄바꿈 금지 공백을 쓴다
+  const basis = meet.slice(meet.indexOf('class="itinerary__basis"'), meet.indexOf('</dl>'));
+  assert.ok(basis.includes('<dt>비행기 도착</dt>') && basis.includes('aria-hidden="true">21:00<'));
+  assert.ok(basis.includes('<span class="sr-only">오후 9시</span>'));
+  assert.ok(basis.includes('<dt>입국 후 만남까지</dt>') && basis.includes('aria-hidden="true">+40분<') && basis.includes('>변경</button>')); // 값 옆의 "변경"이 설정값이라는 뜻을 알린다
+  assert.ok(basis.includes('<span class="sr-only">40분</span>'));
+  assert.ok(!html.includes('itinerary__stop--arrival'));
+  // 근거 줄은 만날 수 있는 시각 블록 안에 있다 (블록 밖에 따로 떠 있지 않다)
+  const block = meet.slice(meet.indexOf('class="itinerary__block"'));
+  assert.ok(block.indexOf('itinerary__when') < block.indexOf('itinerary__basis'));
+});
+
+test('시간표: 지점마다 블록(itinerary__block)으로 묶인다', () => {
+  const html = renderTimeline(vmOf());
+  const blocks = html.split('class="itinerary__block"').length - 1;
+  assert.equal(blocks, 3); // 출발 · 터미널 도착 · 만날 수 있는 시각
+  const stops = [...html.matchAll(/<li class="itinerary__stop itinerary__stop--(\w+)">([\s\S]*?)<\/li>/g)];
+  for (const [, kind, body] of stops) {
+    assert.ok(body.indexOf('class="itinerary__badge"') < body.indexOf('class="itinerary__block"'), `${kind}: 아이콘 원은 블록 밖 왼쪽에 있다`);
+    const block = body.slice(body.indexOf('class="itinerary__block"'));
+    assert.ok(block.includes('class="itinerary__what"') && block.includes('class="itinerary__when"'), `${kind}: 이름과 시각이 같은 블록 안에 있다`);
+  }
+  assert.ok(!html.includes('itinerary__leg')); // 구간 줄은 블록 안 행으로 들어갔다
+});
+
+test('시간표: 비행기 도착이 다른 날이면 근거 줄의 값에도 날짜가 붙는다', () => {
+  const html = renderTimeline(vmOf({ now: toMs('2026-10-30 23:00'), flight: flight({ scheduled: toMs('2026-10-31 02:00'), fetchedAt: toMs('2026-10-30 23:00'), receivedAt: toMs('2026-10-30 23:00') }) }));
+  assert.ok(html.includes('aria-hidden="true">내일 02:00<')); // 근거 줄의 비행기 도착 값에도 날짜 라벨
 });
 
 test('시간표: 다른 날로 넘어가는 시각에는 날짜 라벨이 시각 위에 붙는다', () => {
@@ -122,7 +189,7 @@ test('시간표: 장소 이름·주소는 이스케이프한다 (외부 데이�
 });
 
 test('시간표: 출발지 이름이 없으면 "출발지"로 쓰고 주소 줄은 만들지 않는다', () => {
-  const depart = (html) => html.slice(html.indexOf('itinerary__stop--depart'), html.indexOf('itinerary__leg'));
+  const depart = (html) => html.slice(html.indexOf('itinerary__stop--depart'), html.indexOf('itinerary__stop--terminal'));
   const without = renderTimeline(vmOf({ origin: null }));
   assert.ok(without.includes('class="itinerary__place">출발지<'));
   assert.ok(!depart(without).includes('itinerary__sub'));
@@ -166,7 +233,7 @@ test('카드: 평소 상태("여유 있어요")에는 상태 줄도 태그도 �
 test('카드: 알려야 하는 상태는 "상태 줄" 하나로 알린다 (지남 · 곧 출발 · 착륙)', () => {
   const cases = [
     [vmOf({ now: LATE }), 'passed', '추천 출발 시각이 지났어요. 이동 시간을 다시 확인해 볼까요?'],
-    [vmOf({ now: toMs('2026-10-30 18:40'), flight: flight({ fetchedAt: toMs('2026-10-30 18:40'), receivedAt: toMs('2026-10-30 18:40') }) }), 'soon', '곧 나갈 시간이에요.'], // 추천 시각 19:20 의 40분 전
+    [vmOf({ now: toMs('2026-10-30 20:00'), flight: flight({ fetchedAt: toMs('2026-10-30 20:00'), receivedAt: toMs('2026-10-30 20:00') }) }), 'soon', '곧 나갈 시간이에요.'], // 추천 시각 20:40 의 40분 전
     [vmOf({ flight: flight({ status: 'touchdown' }) }), 'touchdown', '비행기가 착륙했어요, 입국 절차가 끝나면 만날 수 있어요.'],
   ];
   for (const [vm, kind, text] of cases) {
@@ -202,26 +269,26 @@ test('카드: 도착 변경·최신 정보 확인 못 함은 상태 줄을 만�
   assert.ok(html.includes('마지막 확인은 13:30예요.') && html.includes('최신 정보를 확인하지 못했어요')); // 쪽지의 확인 시각 줄
 });
 
-test('이동 구간에는 "이동 N분 / 자동차 기준"만 있고 확인 시각 줄은 없다', () => {
+test('이동 행에는 "자동차 이동 N분"만 있고 확인 시각 줄은 없다', () => {
   const html = card(vmOf({ drive: { ...drive, fetchedAt: toMs('2026-10-30 18:45') } }));
-  const leg = html.slice(html.indexOf('<li class="itinerary__leg">'), html.indexOf('</li>', html.indexOf('<li class="itinerary__leg">')));
-  assert.ok(leg.includes('이동 40분') && leg.includes('자동차 기준'));
-  assert.ok(!leg.includes('확인'));
+  const depart = html.slice(html.indexOf('itinerary__stop--depart'), html.indexOf('itinerary__stop--terminal'));
+  assert.ok(depart.includes('<dt>자동차 이동</dt>') && depart.includes('>40분<'));
+  assert.ok(!depart.includes('확인'));
   assert.ok(!html.includes('18:45 확인'));
   assert.ok(!html.includes('이동 시간은 '));
 });
 
 test('카드: 추천 시각은 화면 읽기에 "오후 N시 M분"으로 읽히고, 다른 날이면 날짜 라벨이 함께 보이고 읽힌다', () => {
-  const sameDay = card(vmOf()); // 추천 시각 19:20 (오늘)
-  assert.match(sameDay, /<span class="sr-only">오후 7시 20분<\/span>/);
+  const sameDay = card(vmOf()); // 추천 시각 20:40 (오늘)
+  assert.match(sameDay, /<span class="sr-only">오후 8시 40분<\/span>/);
   assert.ok(!sameDay.includes('reco__day'));
 
-  // 비행기 도착이 내일 20:00 이면 추천 시각은 내일 18:20 이다.
+  // 비행기 도착이 내일 20:00 이면 추천 시각은 내일 19:40 이다. (20:00 + 입국 후 40 − 여유 20 − 이동 40)
   const tomorrow = vmOf({ flight: flight({ scheduled: toMs('2026-10-31 20:00') }) });
   assert.equal(tomorrow.dayText, '내일');
   const html = card(tomorrow);
   assert.ok(html.includes('class="reco__day" aria-hidden="true">내일<'));
-  assert.ok(html.includes('<span class="sr-only">내일 오후 6시 20분</span>'));
+  assert.ok(html.includes('<span class="sr-only">내일 오후 7시 40분</span>'));
 });
 
 test('카드: 확인 시각 줄 옆에 새로고침 아이콘 버튼이 있고, 확인 중이거나 이동 시간을 다시 확인하는 동안은 막힌다', () => {
@@ -265,32 +332,41 @@ test('카드: 옛 "출발지 ── 공항" 줄과 "여유 | 터미널 도착 | 
   assert.equal(html.split('itinerary__stop ').length - 1, 3); // 지점은 출발·터미널 도착·비행기 도착 셋
 });
 
-test('뷰모델: 터미널 도착 예상은 추천 출발 시각 + 이동 시간이고, 거기에 여유를 더하면 비행기 도착이다', () => {
+test('뷰모델: 터미널 도착 예상은 추천 출발 시각 + 이동 시간이고, 거기에 공항 도착 여유를 더하면 만날 수 있는 시각이다', () => {
   const vm = vmOf();
   assert.equal(vm.terminalArrivalMs, vm.departureMs + minutes(40));
-  assert.equal(vm.terminalArrivalMs + minutes(vm.bufferTotalMin), toMs('2026-10-30 21:00'));
-  assert.equal(vm.terminalArrivalText, '20:00');
-  assert.equal(vm.terminalArrivalSpoken, '오후 8시');
+  assert.equal(vm.terminalArrivalMs + minutes(vm.airportBufferMin), vm.meetAtMs);
+  assert.equal(vm.terminalArrivalText, '21:20');
+  assert.equal(vm.terminalArrivalSpoken, '오후 9시 20분');
 });
 
-test('뷰모델: 이동 시간이 바뀌면 터미널 도착 예상도 바뀐다 (추천 시각은 반대로 움직여 합계는 그대로)', () => {
+test('뷰모델: 이동 시간이 바뀌면 추천 시각만 움직이고 터미널 도착 예상은 그대로다', () => {
   const longer = vmOf({ drive: { ...drive, minutes: 70 } });
-  assert.equal(longer.terminalArrivalMs + minutes(longer.bufferTotalMin), toMs('2026-10-30 21:00'));
-  assert.equal(longer.terminalArrivalMs, vmOf().terminalArrivalMs); // 비행기 도착과 여유가 같으면 터미널 도착 시각도 같다
+  assert.equal(longer.terminalArrivalMs + minutes(longer.airportBufferMin), longer.meetAtMs);
+  assert.equal(longer.terminalArrivalMs, vmOf().terminalArrivalMs); // 비행기 도착과 두 설정값이 같으면 터미널 도착 시각도 같다
   assert.equal(longer.departureMs, vmOf().departureMs - minutes(30));
+});
+
+test('뷰모델: 입국 후 만남을 늘리면 터미널 도착과 추천 시각이 함께 늦어지고, 공항 도착 여유를 늘리면 함께 이르러진다', () => {
+  const base = vmOf();
+  const slowerExit = vmOf({ buffers: { airportBufferMin: 20, meetupMin: 60 } });
+  assert.equal(slowerExit.departureMs - base.departureMs, minutes(20));
+  assert.equal(slowerExit.terminalArrivalMs - base.terminalArrivalMs, minutes(20));
+  const earlierWait = vmOf({ buffers: { airportBufferMin: 40, meetupMin: 40 } });
+  assert.equal(base.departureMs - earlierWait.departureMs, minutes(20));
 });
 
 test('뷰모델: 터미널 도착 예상이 다른 날이면 날짜 라벨이 붙는다', () => {
   const vm = vmOf({ now: toMs('2026-10-30 23:00'), flight: flight({ scheduled: toMs('2026-10-31 02:00'), fetchedAt: toMs('2026-10-30 23:00'), receivedAt: toMs('2026-10-30 23:00') }) });
-  assert.equal(vm.terminalArrivalText, '내일 01:00'); // 비행기 도착 02:00 - 여유 60분 = 01:00 (오늘 밤 23:00 기준으로 내일)
+  assert.equal(vm.terminalArrivalText, '내일 02:20'); // 비행기 도착 02:00 + 입국 후 40 − 여유 20 = 02:20 (오늘 밤 23:00 기준으로 내일)
 });
 
 test('카드: 터미널 도착은 "예상"이라는 말과 함께 보이고, 화면 읽기에도 시각이 따로 읽힌다', () => {
   const html = renderTimeline(vmOf());
-  const field = html.slice(html.indexOf('itinerary__stop--terminal'), html.indexOf('itinerary__stop--arrival'));
+  const field = html.slice(html.indexOf('itinerary__stop--terminal'), html.indexOf('itinerary__stop--meet'));
   assert.ok(field.includes('터미널 도착') && field.includes('예상'));
-  assert.ok(field.includes('aria-hidden="true">20:00<'));
-  assert.ok(field.includes('<span class="sr-only">오후 8시</span>'));
+  assert.ok(field.includes('aria-hidden="true">21:20<'));
+  assert.ok(field.includes('<span class="sr-only">오후 9시 20분</span>'));
 });
 
 // ---------- 선택한 항공편 정보 ----------
@@ -362,18 +438,18 @@ test('항공편 정보 칸: 외부 데이터는 이스케이프한다', () => {
 // ---------- 지금 줄 (현재 시각 + 출발까지 남은 시간) ----------
 
 test('뷰모델: 지금 시각과 출발까지 남은 시간을 담는다', () => {
-  const vm = vmOf(); // 지금 14:00, 추천 출발 19:20
+  const vm = vmOf(); // 지금 14:00, 추천 출발 20:40
   assert.equal(vm.nowText, '14:00');
   assert.equal(vm.nowSpoken, '오후 2시');
   assert.equal(vm.untilKind, 'until');
-  assert.equal(vm.untilText, '출발까지 5시간 20분');
+  assert.equal(vm.untilText, '출발까지 6시간 40분');
 });
 
 test('뷰모델: 추천 출발 시각이 지났으면 "N분 지났어요"', () => {
-  const vm = vmOf({ now: LATE }); // 지금 21:30, 추천 출발 19:20
+  const vm = vmOf({ now: LATE }); // 지금 21:30, 추천 출발 20:40
   assert.equal(vm.nowText, '21:30');
   assert.equal(vm.untilKind, 'passed');
-  assert.equal(vm.untilText, '2시간 10분 지났어요');
+  assert.equal(vm.untilText, '50분 지났어요');
 });
 
 test('"지금" 줄: 추천 시각 바로 아래 같은 구역에 있고 "지금 + 시각"과 남은 시간이 보인다', () => {
@@ -383,7 +459,13 @@ test('"지금" 줄: 추천 시각 바로 아래 같은 구역에 있고 "지금 
   assert.ok(order.every((index) => index >= 0) && order[0] < order[1] && order[1] < order[2], String(order));
   assert.ok(hero.includes('>지금<'));
   assert.ok(hero.includes('aria-hidden="true">14:00<'));
-  assert.ok(hero.includes('출발까지 5시간 20분'));
+  assert.ok(hero.includes('출발까지 6시간 40분'));
+});
+
+test('"지금" 줄: 출발까지 남은 시간이 먼저, 지금 시각은 기준 정보로 뒤에 온다 (판단 흐름: 언제 나가나 → 얼마나 남았나 → 지금은 몇 시)', () => {
+  const html = renderNowRow(vmOf());
+  assert.ok(html.indexOf('class="reco__until') < html.indexOf('class="reco__now-clock"'));
+  assert.ok(html.indexOf('출발까지 6시간 40분') < html.indexOf('>지금<'));
 });
 
 test('"지금" 줄: 매분 바뀌어도 화면 읽기 프로그램이 계속 읽지 않게 aria-live="off"이고, 읽기용 시각이 따로 있다', () => {
@@ -395,13 +477,13 @@ test('"지금" 줄: 매분 바뀌어도 화면 읽기 프로그램이 계속 읽
 test('"지금" 줄: 남은 시간 문구는 상태(until · now · passed)별 클래스가 있어 지났을 때만 다르게 보일 수 있다', () => {
   assert.ok(renderNowRow(vmOf()).includes('class="reco__until reco__until--until"'));
   assert.ok(renderNowRow(vmOf({ now: LATE })).includes('class="reco__until reco__until--passed"'));
-  assert.ok(renderNowRow(vmOf({ now: toMs('2026-10-30 19:20') })).includes('reco__until--now')); // 출발 시각 정각
+  assert.ok(renderNowRow(vmOf({ now: toMs('2026-10-30 20:40') })).includes('reco__until--now')); // 출발 시각 정각
 });
 
 test('"지금" 줄은 카드 안에서 한 번만 나오고, 지남 상태 줄과 같은 말을 되풀이하지 않는다', () => {
   const html = card(vmOf({ now: LATE }));
   assert.equal(html.split('class="reco__now"').length - 1, 1);
-  assert.ok(html.includes('2시간 10분 지났어요')); // 얼마나 지났는지는 "지금" 줄이,
+  assert.ok(html.includes('50분 지났어요')); // 얼마나 지났는지는 "지금" 줄이,
   assert.ok(html.includes('추천 출발 시각이 지났어요. 이동 시간을 다시 확인해 볼까요?')); // 무엇을 하면 되는지는 상태 줄이 알린다
   assert.equal(html.split('추천 출발 시각이 지났어요').length - 1, 1);
 });

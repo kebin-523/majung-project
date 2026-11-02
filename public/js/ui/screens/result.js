@@ -29,7 +29,7 @@ import { createAutoRecheck } from '../../domain/autoRecheck.js';
 import { describeUntil } from '../../domain/countdown.js';
 import { isStale, lastConfirmedAt, resolveBadge, resolveFlightView } from '../../domain/status.js';
 import {
-  dayLabel, formatClock, formatClockWithDay, formatDateLabel, formatSpoken, formatSpokenWithDay, isSameDayKst, minutes,
+  dayLabel, formatClock, formatClockWithDay, formatDateLabel, formatSpoken, formatSpokenWithDay, isSameDayKst,
 } from '../../domain/time.js';
 import { load, save } from '../../store.js';
 import { closeCurrentSheet, openBufferSheet } from '../components/bottomSheet.js';
@@ -72,7 +72,7 @@ const dayOrNull = (ms, now) => (isSameDayKst(ms, now) ? null : dayLabel(ms, now)
 
 export function buildResultViewModel({ flight, drive, buffers, now, hasChange = false, checking = false, refreshing = false, origin = null }) {
   const arrival = latestArrival(flight);
-  const { departureMs } = recommendDeparture({
+  const { departureMs, terminalArrivalMs, meetAtMs } = recommendDeparture({
     arrival,
     travelMin: drive.minutes,
     airportBufferMin: buffers.airportBufferMin,
@@ -104,12 +104,19 @@ export function buildResultViewModel({ flight, drive, buffers, now, hasChange = 
     arrivalText: formatClockWithDay(arrival, now),
     arrivalSpoken: formatSpokenWithDay(arrival, now),
     travelMin: drive.minutes,
-    bufferTotalMin: buffers.airportBufferMin + buffers.meetupMin,
-    // 터미널 도착 예상: 추천 출발 시각 + 이동 시간. API가 주는 값이 아니라 우리가 계산한 예상이다. (추천 출발 시각 + 이동 + 여유 = 비행기 도착)
-    terminalArrivalMs: departureMs + minutes(drive.minutes),
-    terminalArrivalText: formatClockWithDay(departureMs + minutes(drive.minutes), now),
-    terminalArrivalClock: formatClock(departureMs + minutes(drive.minutes)),
-    terminalArrivalDay: dayOrNull(departureMs + minutes(drive.minutes), now),
+    // 공항 도착 여유(승객이 나오기 전에 와 있을 시간)와 입국 후 만남까지 예상 시간은 서로 다른 값이라 더하지 않고 따로 담는다.
+    airportBufferMin: buffers.airportBufferMin,
+    meetupMin: buffers.meetupMin,
+    // 터미널 도착 예상: 추천 출발 시각 + 이동 시간 (= 만날 수 있는 예상 시각 − 공항 도착 여유). API가 주는 값이 아니라 우리가 계산한 예상이다.
+    terminalArrivalMs,
+    terminalArrivalText: formatClockWithDay(terminalArrivalMs, now),
+    terminalArrivalClock: formatClock(terminalArrivalMs),
+    terminalArrivalDay: dayOrNull(terminalArrivalMs, now),
+    // 승객을 만날 수 있을 예상 시각: 비행기 도착 + 입국 후 만남까지 예상 시간. 실시간 정보가 아니라 설정값으로 계산한 추정이다.
+    meetAtMs,
+    meetClock: formatClock(meetAtMs),
+    meetDay: dayOrNull(meetAtMs, now),
+    meetSpoken: formatSpokenWithDay(meetAtMs, now),
     departureDay: dayOrNull(departureMs, now),
     arrivalClock: formatClock(arrival),
     arrivalDay: dayOrNull(arrival, now),
@@ -118,7 +125,7 @@ export function buildResultViewModel({ flight, drive, buffers, now, hasChange = 
     nowSpoken: formatSpoken(now),
     untilKind: describeUntil(departureMs, now).kind,
     untilText: describeUntil(departureMs, now).text,
-    terminalArrivalSpoken: formatSpokenWithDay(departureMs + minutes(drive.minutes), now),
+    terminalArrivalSpoken: formatSpokenWithDay(terminalArrivalMs, now),
     // 사용자가 앞서 고른 항공편 정보. 값이 없는 항목은 화면에서 만들지 않는다.
     flightNo: flight.flightNo || null,
     airline: flight.airline || null,
@@ -213,7 +220,9 @@ export function renderResult({ main }, ctx) {
   const host = main.querySelector('#card-host');
   const noticeHost = main.querySelector('#notice-host');
   const actionsHost = main.querySelector('#actions-host');
-  const getBufferChip = () => main.querySelector('[data-chip="buffer"]');
+  // 설정값 "변경" 버튼이 둘이다(도착 후 대기 · 입국 후 만남까지). 시트를 닫으면 누른 버튼의 새 자리로 포커스를 돌려준다.
+  let lastChipRow = 'airport';
+  const getBufferChip = () => main.querySelector(`[data-chip="buffer"][data-chip-row="${lastChipRow}"]`) ?? main.querySelector('[data-chip="buffer"]');
 
   const makeVm = () => buildResultViewModel({
     flight, drive, buffers, now: ctx.now(), hasChange: change !== null, checking, refreshing: travelBusy || manualBusy, origin: state.origin,
@@ -301,7 +310,10 @@ export function renderResult({ main }, ctx) {
       host.querySelector('.ticket__status--soon .ticket__status-icon')?.classList.add('is-pulse');
     }
 
-    getBufferChip()?.addEventListener('click', openSheet);
+    host.querySelectorAll('[data-chip="buffer"]').forEach((button) => button.addEventListener('click', () => {
+      lastChipRow = button.dataset.chipRow ?? 'airport';
+      openSheet();
+    }));
     drawActions();
   }
 
