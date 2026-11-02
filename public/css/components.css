@@ -1327,3 +1327,121 @@ button.chip:active { transform: scale(0.98); }
 
 .notice-ticket .ticket__stub > .btn--text { align-self: flex-start; }
 .notice-ticket + .notice-ticket { margin-top: var(--space-3); }
+
+/* ───────── 온보딩 (DesignGuide 7장 "온보딩", 가정) ─────────
+   로고만 보이는 첫 화면 → 소개 3장 → 시작하기. 새 색·크기·간격은 쓰지 않고 기존 토큰만 쓴다. 그림 속 값은 장식용 예시다. */
+.app--intro .app__header { display: none; }
+
+.intro-splash {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  color: var(--color-dusk-blue);
+  cursor: pointer;
+}
+
+.intro-wordmark { margin-top: var(--space-3); color: var(--color-ink); font-size: var(--fs-h1); line-height: var(--lh-h1); font-weight: 700; }
+
+/* 두 선이 한 번 이어지고 멈춘다: 선이 그려지고(700ms) 만나는 점이 나타난다. 반복하지 않는다 */
+.intro-logo__line { stroke-dasharray: 1; stroke-dashoffset: 1; animation: intro-draw var(--dur-large) var(--ease) 150ms forwards; }
+.intro-logo__line--b { animation-delay: 300ms; }
+.intro-logo__dot { transform-box: fill-box; transform-origin: center; opacity: 0; animation: intro-dot var(--dur-base) var(--ease) 700ms forwards; }
+.intro-wordmark, .intro-splash .caption { opacity: 0; animation: intro-fade var(--dur-large) var(--ease) 800ms forwards; }
+
+@keyframes intro-draw { to { stroke-dashoffset: 0; } }
+@keyframes intro-dot { from { opacity: 0; transform: scale(0.4); } to { opacity: 1; transform: none; } }
+@keyframes intro-fade { to { opacity: 1; } }
+
+.intro-fade-in { animation: intro-fade-from var(--dur-base) var(--ease); }
+@keyframes intro-fade-from { from { opacity: 0; } to { opacity: 1; } }
+
+/* 소개 페이지: 옆으로 나란히 놓인 장을 translateX 로 넘긴다 (250ms) */
+.intro-pager { flex: 1; display: flex; overflow: hidden; touch-action: pan-y; }
+.intro-track { flex: 1; display: flex; min-width: 0; transition: transform var(--dur-base) var(--ease); }
+
+.intro-slide {
+  flex: 0 0 100%;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: var(--space-5);
+}
+
+.intro-art { display: flex; align-items: center; justify-content: center; height: calc(var(--space-9) * 3); } /* 장마다 그림 높이가 달라도 제목 위치가 같게 */
+.intro-copy { display: flex; flex-direction: column; gap: var(--space-3); min-height: calc(var(--space-9) + var(--space-6)); text-align: center; } /* 제목이 한 줄이어도 두 줄 높이만큼 비워 그림이 흔들리지 않게 */
+.intro-title { font-size: var(--fs-h2); line-height: var(--lh-h2); }
+.intro-body { color: var(--color-warm-gray); text-wrap: balance; }
+
+/* 그림 속 티켓: 추천 카드와 같은 Peach + 줄무늬 윗 띠. 안에서 누를 것은 없다 */
+.intro-ticket { width: 100%; border-radius: var(--radius-card); background: var(--color-peach); overflow: hidden; }
+.intro-ticket__body { display: flex; flex-direction: column; gap: var(--space-3); padding: var(--space-3) var(--space-4) var(--space-4); }
+.intro-ticket__times { display: flex; align-items: flex-end; gap: var(--space-2); }
+.intro-ticket__col { display: flex; flex-direction: column; }
+.intro-ticket__col--end { align-items: flex-end; text-align: right; }
+.intro-ticket__label { font-size: var(--fs-chip); line-height: var(--lh-chip); font-weight: 600; color: var(--color-warm-gray); }
+.intro-ticket__time { font-size: var(--fs-h1); line-height: var(--lh-time); font-weight: 700; }
+/* 가운데 점선: 출발에서 만남까지 이어진다는 뜻만 담는다 (추천 카드 상단과 같다) */
+.intro-ticket__basis { margin-top: calc(-1 * var(--space-2)); font-size: var(--fs-caption); line-height: var(--lh-caption); color: var(--color-ink); }
+.intro-ticket__dots { flex: 1; min-width: var(--space-3); height: 0; margin-bottom: var(--space-3); border-top: var(--line-trail) dotted var(--color-dusk-blue); }
+
+/* 3장: 바뀐 항목 비교 (이전 시각 취소선 → 새 시각). Dusk Blue, Peach 위 대비 7.20 */
+.intro-ticket--change { color: var(--color-dusk-blue); }
+.intro-ticket--change .caption { color: var(--color-warm-gray); }
+.intro-change__row { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-3); }
+.intro-change__label { font-size: var(--fs-chip); line-height: var(--lh-chip); font-weight: 600; }
+.intro-change__values { font-size: var(--fs-caption); }
+.intro-change__values b { font-size: var(--fs-h3); line-height: var(--lh-h3); font-weight: 600; }
+/* 취소선은 글자 위에 선이 그어지는 모션이라 text-decoration 대신 ::after 선을 쓴다 (읽기용 이름은 role=img 의 aria-label) */
+.intro-change__old { position: relative; display: inline-block; }
+.intro-change__old s { text-decoration: none; }
+.intro-change__old::after { content: ''; position: absolute; left: 0; right: 0; top: 50%; height: 1px; background: currentColor; transform-origin: left; transform: scaleX(1); }
+/* 3장이 보일 때: 이전 값에 취소선이 그어진 뒤(250ms) 새 값이 나타난다(250ms). 장을 떠나면 처음 상태로 돌아가 다시 보일 때 재생된다 */
+.intro-slide:not(.is-active) .intro-change__old::after { transform: scaleX(0); }
+.intro-slide:not(.is-active) .intro-change__new { opacity: 0; }
+.intro-slide.is-active .intro-change__old::after { animation: intro-strike var(--dur-base) var(--ease) 600ms backwards; }
+.intro-slide.is-active .intro-change__new { animation: intro-fade-from var(--dur-base) var(--ease) 850ms backwards; }
+.intro-slide.is-active .intro-change__row:nth-child(2) .intro-change__old::after { animation-delay: 700ms; }
+.intro-slide.is-active .intro-change__row:nth-child(2) .intro-change__new { animation-delay: 950ms; }
+.intro-slide.is-active .intro-change__row:nth-child(3) .intro-change__old::after { animation-delay: 800ms; }
+.intro-slide.is-active .intro-change__row:nth-child(3) .intro-change__new { animation-delay: 1050ms; }
+@keyframes intro-strike { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+/* 움직임 줄이기: 모션 없이 취소선과 새 값을 바로 보여 준다 */
+@media (prefers-reduced-motion: reduce) {
+  .intro-slide .intro-change__old::after { transform: scaleX(1) !important; animation: none !important; }
+  .intro-slide .intro-change__new { opacity: 1 !important; animation: none !important; }
+}
+.intro-change__note { display: flex; gap: var(--space-2); padding-top: var(--space-3); border-top: 1px dashed var(--color-warm-gray); font-weight: 600; }
+.intro-change__note .icon { flex: none; }
+
+/* 2장: 점선 원 + Dusk Blue 3px 선으로 이어진 세 단계 (시간표와 같은 모양) */
+.intro-steps { position: relative; display: flex; flex-direction: column; gap: var(--space-4); width: 100%; margin: 0; padding: 0; list-style: none; }
+.intro-steps::before { content: ''; position: absolute; top: var(--space-4); bottom: var(--space-4); left: calc(var(--space-5) / 2 - 1.5px); width: var(--line-trail); background: var(--color-dusk-blue); }
+.intro-steps li { position: relative; display: flex; align-items: center; gap: var(--space-3); }
+.intro-steps__badge {
+  position: relative; /* 선 위에 올라오게 */
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--space-5);
+  height: var(--space-5);
+  border: 1px dashed var(--color-warm-gray);
+  border-radius: 50%;
+  background: var(--color-cream);
+  color: var(--color-dusk-blue);
+}
+/* 결과 단계(③)는 남색으로 채운 원 + 흰 아이콘 (흰색 on Dusk Blue 대비 8.36). 입력 단계(①②)는 점선 원이다 */
+.intro-steps__badge--result { border: 1px solid var(--color-dusk-blue); background: var(--color-dusk-blue); color: var(--color-on-sunset); }
+.intro-steps__text { display: flex; flex-direction: column; min-width: 0; padding: var(--space-2) var(--space-3); border: 1px solid var(--color-border); border-radius: var(--radius-input); flex: 1; }
+.intro-steps__text strong { font-size: var(--fs-body); font-weight: 600; }
+
+/* 아래 고정 영역: 진행 점 → Primary → 가운데 정렬 Text 버튼 */
+.intro-dots { display: flex; justify-content: center; align-items: center; gap: var(--space-2); padding-bottom: var(--space-2); }
+.intro-dots__dot { width: var(--space-2); height: var(--space-2); border-radius: var(--radius-pill); background: var(--color-border); transition: width var(--dur-base) var(--ease), background-color var(--dur-base) var(--ease); }
+/* 지금 장은 점이 길어지고 Ink 로 바뀐다 (색만으로 구분하지 않는다. 화면 읽기에는 "3단계 중 1단계") */
+.intro-dots__dot.is-current { width: var(--space-4); background: var(--color-ink); }
+.intro-second { align-self: center; }

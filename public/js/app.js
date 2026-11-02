@@ -1,9 +1,11 @@
-// 진입점: 해시 라우팅(#/flight, #/confirm, #/origin, #/result)과 화면 교체.
+// 진입점: 해시 라우팅(#/intro, #/flight, #/confirm, #/origin, #/result)과 화면 교체.
 import { load } from './store.js';
 import { ADDRESS_ROUTE_IS_MOCK } from './config.js';
 import { mockBadgeText } from './domain/mockBadge.js';
 import { clockNow, clockToday, isScenarioMode } from './clock.js';
 import { getScenario } from './mock/scenarios.js';
+import { shouldShowOnboarding } from './domain/onboarding.js';
+import { renderOnboarding } from './ui/screens/onboarding.js';
 import { renderFlightConfirm } from './ui/screens/flightConfirm.js';
 import { renderFlightSearch } from './ui/screens/flightSearch.js';
 import { renderOriginSetup } from './ui/screens/originSetup.js';
@@ -29,6 +31,7 @@ const ctx = {
 const ROUTES = ['flight', 'confirm', 'origin', 'result'];
 
 const SCREENS = {
+  intro: renderOnboarding,
   flight: renderFlightSearch,
   confirm: renderFlightConfirm,
   origin: renderOriginSetup,
@@ -37,6 +40,8 @@ const SCREENS = {
 
 function currentRoute() {
   const name = location.hash.replace(/^#\/?/, '');
+  // 온보딩: 주소 #/intro 로는 언제든 볼 수 있고, 처음 들어온 빈 탭이면 자동으로 먼저 보인다.
+  if (name === 'intro' || shouldShowOnboarding(load(), { scenarioMode: isScenarioMode() })) return 'intro';
   const route = ROUTES.includes(name) ? name : 'flight';
 
   // 앞 단계를 거치지 않고 주소로 바로 들어오면, 갈 수 있는 가장 가까운 앞 단계로 보낸다.
@@ -94,6 +99,8 @@ function render() {
 
   main.replaceChildren();
   footer.replaceChildren();
+  footer.classList.remove('intro-fade-in');
+  document.querySelector('.app').classList.toggle('app--intro', route === 'intro'); // 온보딩에서는 상단 로고 줄을 숨긴다(로고가 화면 가운데에 크게 있다)
   SCREENS[route]({ main, footer }, ctx);
   window.scrollTo(0, 0);
 
