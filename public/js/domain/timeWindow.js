@@ -35,3 +35,21 @@ export function readSavedWindow(saved, maxHours = WINDOW_MAX_HOURS) {
   if (fromHour > 23 || toHour <= fromHour || toHour > Math.min(fromHour + maxHours, 24)) return null;
   return { fromHour, toHour };
 }
+
+/** 정시 → "HH:00" (24 는 "24:00") */
+export function formatHour(hour) {
+  return `${String(hour).padStart(2, '0')}:00`;
+}
+
+/** "몇 시부터" 목록: 0~23시 */
+export function fromHourOptions() {
+  return Array.from({ length: 24 }, (_, hour) => ({ hour, label: formatHour(hour) }));
+}
+
+/** "몇 시까지" 목록: 시작 다음 시각부터 최대 폭(기본 3시간) 뒤까지, 24시를 넘기지 않는다 */
+export function toHourOptions(fromHour, maxHours = WINDOW_MAX_HOURS) {
+  const max = Math.min(fromHour + maxHours, 24);
+  const options = [];
+  for (let hour = fromHour + 1; hour <= max; hour += 1) options.push({ hour, label: formatHour(hour) });
+  return options;
+}

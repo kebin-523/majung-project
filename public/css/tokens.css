@@ -16,7 +16,7 @@
 
   /* 타이포그래피 (가이드 4장) */
   --font-family: 'Pretendard', 'Pretendard Variable', -apple-system, BlinkMacSystemFont, 'Malgun Gothic', sans-serif;
-  --fs-time: 56px;      --lh-time: 1.1;
+  --fs-time: 56px;      --lh-time: 1.1;   /* 상단의 두 시각(추천 출발 · 예상 만남)의 최대 크기. 둘이 나란히 들어가도록 좁은 화면에서는 같이 줄어든다(components.css .reco__time) */
   --fs-h1: 32px;        --lh-h1: 1.3;
   --fs-h2: 24px;        --lh-h2: 1.35;
   --fs-h3: 20px;        --lh-h3: 1.4;

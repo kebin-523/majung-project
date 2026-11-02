@@ -45,7 +45,8 @@
    - 안내 상자(.notice): 글자가 상자 안쪽 여백(16px)과 맞는다 (넓어진 범위는 상자 안쪽) */
 .text-actions > .btn--text:first-child,
 .actions > .btn--text:first-child,
-.notice > .btn--text { margin-left: calc(-1 * var(--space-3)); }
+.notice > .btn--text,
+.notice-ticket .ticket__stub > .btn--text { margin-left: calc(-1 * var(--space-3)); }
 
 /* 아이콘 (선 1.5px SVG를 마스크로 써서 글자색을 따라간다) */
 .icon {
@@ -94,7 +95,9 @@ h1:focus { outline: none; }
 .form { display: flex; flex-direction: column; gap: var(--space-4); }
 .field { display: flex; flex-direction: column; gap: var(--space-2); }
 
+/* 라벨 글자는 입력창 모서리의 둥근 부분이 끝나는 지점(모서리 반지름만큼 안쪽)에 맞춘다 */
 .field__label {
+  padding-left: var(--radius-input);
   font-size: var(--fs-chip);
   line-height: var(--lh-chip);
   font-weight: 600;
@@ -102,7 +105,8 @@ h1:focus { outline: none; }
 }
 
 .field__input,
-.date-field {
+.date-field,
+.hour-field {
   min-height: var(--size-input-h);
   border: 1px solid var(--color-warm-gray);
   border-radius: var(--radius-input);
@@ -116,7 +120,10 @@ h1:focus { outline: none; }
 }
 
 .field__input:focus,
-.date-field:focus-within {
+.date-field:focus-visible,
+.date-field[aria-expanded="true"],
+.hour-field:focus-visible,
+.hour-field[aria-expanded="true"] {
   outline: none;
   border-color: var(--color-sunset);
   box-shadow: 0 0 0 1px var(--color-sunset);
@@ -130,10 +137,15 @@ h1:focus { outline: none; }
   text-transform: uppercase;
 }
 
-.field__input--flight::placeholder {
+/* 안내 문구가 보일 때는 입력 칸 자체를 본문 크기로 바꿔 글자가 칸 한가운데 오게 한다. (24px 줄 안에서 작은 글자가 기준선을 따라 아래로 처지는 것을 막는다) */
+.field__input--flight:placeholder-shown {
   font-size: var(--fs-body);
+  line-height: normal;
   font-weight: 400;
   text-transform: none;
+}
+
+.field__input--flight::placeholder {
   color: var(--color-warm-gray);
 }
 
@@ -155,14 +167,20 @@ h1:focus { outline: none; }
 
 .field__error:empty { display: none; }
 
-/* 도착 날짜: 읽기 쉬운 글자를 보여 주고, 실제 날짜 입력은 그 위에 투명하게 겹친다 */
+/* 도착 날짜: 칸 전체가 달력을 여는 버튼이다 (DesignGuide 6장 "날짜 달력", 가정) */
+.date-picker { position: relative; }
+
 .date-field {
-  position: relative;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: var(--space-2);
+  width: 100%;
   padding: 0 var(--space-3);
+  color: var(--color-ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
 }
 
 .date-field__value { font-size: var(--fs-body); font-weight: 600; }
@@ -174,14 +192,94 @@ h1:focus { outline: none; }
   color: var(--color-sunset-deep);
 }
 
-.date-field__input {
+/* 달력 패널: 날짜 칸 아래에 겹쳐 열린다. Cream 배경 · Border · 카드 모서리 · 옅은 그림자 */
+.date-panel {
   position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  opacity: 0;
+  top: calc(100% + var(--space-2));
+  left: 0;
+  right: 0;
+  z-index: 10;
+  padding: var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  background: var(--color-cream);
+  box-shadow: var(--shadow-float);
+  animation: date-panel-in var(--dur-base) var(--ease);
+}
+
+.date-panel[hidden] { display: none; }
+
+@keyframes date-panel-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.date-panel__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-2);
+}
+
+.date-panel__title { margin: 0; font-size: var(--fs-h3); line-height: var(--lh-h3); font-weight: 600; }
+
+.date-panel__nav {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--size-button-h);
+  height: var(--size-button-h);
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--color-sunset-deep);
   cursor: pointer;
+}
+
+.date-panel__nav:disabled,
+.date-panel__day:disabled { opacity: 0.4; cursor: default; }
+
+.date-panel__row { display: grid; grid-template-columns: repeat(7, 1fr); justify-items: center; }
+
+.date-panel__weekday {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--size-touch-min);
+  font-size: var(--fs-chip);
+  line-height: var(--lh-chip);
+  font-weight: 600;
+  color: var(--color-warm-gray);
+}
+
+.date-panel__cell { display: flex; align-items: center; justify-content: center; }
+
+.date-panel__day {
+  width: var(--size-touch-min);
+  height: var(--size-touch-min);
+  border: 2px solid transparent;
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--color-ink);
+  font: inherit;
   font-size: var(--fs-body);
+  cursor: pointer;
+  transition: transform var(--dur-fast) var(--ease);
+}
+
+.date-panel__day:active:not(:disabled) { transform: scale(0.96); }
+.date-panel__day--today { background: var(--color-peach); }
+
+/* 고른 날: Amber 원 + Ink 글자(Bold). 테두리는 두지 않는다 */
+.date-panel__day--selected {
+  background: var(--color-amber);
+  font-weight: 700;
+}
+
+.date-panel__nav:focus-visible,
+.date-panel__day:focus-visible {
+  outline: 2px solid var(--color-ink);
+  outline-offset: 2px;
 }
 
 /* 찾기 방식 탭 · 출발 도시 칩 (DesignGuide 6장, 가정): 라디오는 숨기고 키보드로는 그대로 움직인다. 선택하면 Amber + Ink + 체크 */
@@ -218,7 +316,97 @@ h1:focus { outline: none; }
 
 /* 시간대 선택: 선택 칸 두 개를 나란히 (입력창 규칙을 그대로 쓴다) */
 .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-3); }
-select.field__input { color: var(--color-ink); }
+
+/* 시간 선택 칸 · 패널 (DesignGuide 6장 "시간 선택 패널", 가정): 칸 바로 아래에 겹쳐 열린다. 날짜 달력 패널과 같은 모양 규칙 */
+.hour-picker { position: relative; }
+
+.hour-field {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  width: 100%;
+  padding: 0 var(--space-3);
+  color: var(--color-ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.hour-field__value { font-size: var(--fs-body); font-weight: 600; }
+.hour-field__chevron { display: inline-flex; color: var(--color-sunset-deep); transition: transform var(--dur-base) var(--ease); }
+.hour-field[aria-expanded="true"] .hour-field__chevron { transform: rotate(180deg); }
+
+.hour-panel {
+  position: absolute;
+  top: calc(100% + var(--space-2));
+  left: 0;
+  right: 0;
+  z-index: 10;
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  background: var(--color-cream);
+  box-shadow: var(--shadow-float);
+  animation: date-panel-in var(--dur-base) var(--ease);
+}
+
+.hour-panel[hidden] { display: none; }
+
+.hour-panel__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 var(--space-1) 0 var(--space-3);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.hour-panel__value { font-size: var(--fs-h3); line-height: var(--lh-h3); font-weight: 600; }
+
+.hour-panel__close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--size-button-h);
+  height: var(--size-button-h);
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--color-ink);
+  cursor: pointer;
+}
+
+/* 목록: 5줄 높이(44px × 5)까지 보이고 넘치면 목록 안에서만 스크롤한다 */
+.hour-panel__list {
+  list-style: none;
+  margin: 0;
+  padding: var(--space-1);
+  max-height: calc(var(--size-touch-min) * 5 + var(--space-2));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.hour-panel__option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: var(--size-touch-min);
+  padding: 0 var(--space-3);
+  border-radius: var(--radius-input);
+  color: var(--color-ink);
+  font-size: var(--fs-body);
+  cursor: pointer;
+}
+
+/* 고른 시각: Amber 배경 + Ink 글자(Bold) + 체크 아이콘 */
+.hour-panel__option--selected { background: var(--color-amber); font-weight: 700; }
+
+.hour-field:focus-visible,
+.hour-panel__close:focus-visible,
+.hour-panel__option:focus-visible {
+  outline: 2px solid var(--color-ink);
+  outline-offset: 2px;
+}
 /* display 를 정한 요소도 hidden 이면 숨긴다 */
 .field[hidden], .field-row[hidden] { display: none; }
 
@@ -243,13 +431,49 @@ select.field__input { color: var(--color-ink); }
   height: 1px;
 }
 
+/* 출발 도시 검색 + 접히는 칩 줄 (DesignGuide 6장, 가정). 입력창 규칙(56px, Warm Gray 테두리, 모서리 12px)을 그대로 쓴다 */
+.origin-picker { display: flex; flex-direction: column; gap: var(--space-3); }
+
+.origin-search { position: relative; }
+
+.origin-search .icon {
+  position: absolute;
+  top: 50%;
+  left: var(--space-3);
+  transform: translateY(-50%);
+  color: var(--color-warm-gray);
+  pointer-events: none;
+}
+
+.origin-search__input {
+  padding-left: calc(var(--space-3) + 20px + var(--space-2));
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.origin-search__input { padding-right: var(--size-touch-min); }
+.origin-search__input::placeholder { color: var(--color-warm-gray); }
+/* 브라우저 기본 지우기(X)는 팔레트에 없는 파란색이라 숨기고, 같은 일을 하는 아이콘 버튼을 직접 둔다 */
+.origin-search__input::-webkit-search-cancel-button,
+.origin-search__input::-webkit-search-decoration { display: none; -webkit-appearance: none; }
+.origin-search .icon-btn { position: absolute; top: 50%; right: var(--space-1); transform: translateY(-50%); }
+.origin-search .icon-btn[hidden] { display: none; }
+
+/* 칩 줄: 처음엔 한 줄(칩 높이 44px)만 보이고 오른쪽 토글로 펼친다. 포커스 윤곽선이 잘리지 않게 2px 여백을 두되 자리는 차지하지 않는다 */
+.origin-chips { display: flex; align-items: flex-start; gap: var(--space-2); }
+.origin-chips__list { flex: 1; margin: -2px; padding: 2px; transition: max-height var(--dur-base) var(--ease); }
+.origin-chips__list.is-collapsed { max-height: calc(var(--size-chip-h) + 4px); overflow: hidden; }
+.origin-chips__list.is-animating { overflow: hidden; }
+
+.origin-chips__toggle[hidden] { display: none; }
+.origin-chips__toggle .icon { transition: transform var(--dur-base) var(--ease); }
+.origin-chips__toggle[aria-expanded="true"] .icon { transform: rotate(180deg); }
+
+/* 항공편 결과 카드 = 비행기 티켓 (DesignGuide 6장, 가정): 위 구역 · 점선 절취선(양옆 홈) · 아래 칸 */
 .flight-card__body {
   display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: var(--space-3);
+  flex-direction: column;
   min-height: var(--size-touch-min);
-  padding: var(--space-3) var(--space-4);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-card);
   background: var(--color-peach);
@@ -259,9 +483,40 @@ select.field__input { color: var(--color-ink); }
 
 .flight-card:active .flight-card__body { transform: scale(0.98); }
 
-.flight-card__main { display: flex; flex-direction: column; gap: var(--space-1); }
+/* 위 구역: 왼쪽 편명(24px Bold)·항공사, 오른쪽 도착 예정 시각(20px SemiBold). 선택 체크는 편명 옆 */
+.flight-card__top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+}
 
-.flight-card__no { font-size: var(--fs-h3); line-height: var(--lh-h3); font-weight: 600; }
+.flight-card__id,
+.flight-card__time { display: flex; flex-direction: column; min-width: 0; }
+.flight-card__idrow { display: flex; align-items: center; gap: var(--space-2); }
+.flight-card__time { align-items: flex-end; text-align: right; }
+
+.flight-card__no { font-size: var(--fs-h2); line-height: var(--lh-h2); font-weight: 700; }
+
+.flight-card__clock {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  font-size: var(--fs-h3);
+  line-height: var(--lh-h3);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* 변경된 도착 예정: 이전 시각은 취소선 + Dusk Blue 14px, 새 시각은 그대로 20px SemiBold. (Dusk Blue on Peach 7.20, on Amber 약 4.8) */
+.flight-card__was,
+.flight-card__arrow {
+  font-size: var(--fs-caption);
+  line-height: var(--lh-caption);
+  font-weight: 400;
+  color: var(--color-dusk-blue);
+}
 
 .flight-card__meta {
   font-size: var(--fs-caption);
@@ -269,11 +524,40 @@ select.field__input { color: var(--color-ink); }
   color: var(--color-warm-gray);
 }
 
+/* 아래 칸: 점선 절취선 아래. 선 양옆을 페이지 배경(Cream)색 원으로 파낸 것처럼 보이게 한다 */
+.flight-card__stub {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  border-top: 1px dashed var(--color-warm-gray);
+}
+
+.flight-card__stub::before,
+.flight-card__stub::after {
+  content: '';
+  position: absolute;
+  top: -9px;
+  width: var(--space-3);
+  height: var(--space-3);
+  border-radius: 50%;
+  background: var(--color-cream);
+}
+
+.flight-card__stub::before { left: calc(var(--space-2) * -1); }
+.flight-card__stub::after { right: calc(var(--space-2) * -1); }
+
+.flight-card__fields { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-3); }
+.flight-card__field { display: flex; flex-direction: column; min-width: 0; }
+.flight-card__field--end { margin-left: auto; align-items: flex-end; text-align: right; }
+.flight-card__value { font-size: var(--fs-body); line-height: var(--lh-body); font-weight: 600; }
+
 /* 선택되면 Amber 배경 + Ink 글자 + 체크 아이콘 (색만으로 구분하지 않는다) */
 .flight-card__input:checked + .flight-card__body { background: var(--color-amber); border-color: var(--color-amber); }
 .flight-card__input:checked + .flight-card__body .flight-card__meta { color: var(--color-ink); }
 
-.flight-card__check { visibility: hidden; }
+.flight-card__check { visibility: hidden; display: inline-flex; }
 .flight-card__input:checked + .flight-card__body .flight-card__check { visibility: visible; }
 
 .flight-card__input:focus-visible + .flight-card__body {
@@ -282,76 +566,131 @@ select.field__input { color: var(--color-ink); }
 }
 
 /* 추천 출발 시각 카드 (가이드 6장): Peach 배경, 모서리 20px, 안쪽 여백 24px */
-.reco {
+/* 추천 출발 시각 카드 = 비행기 티켓 (DesignGuide 6장 "티켓 모양", 가정). 구역마다 가는 선으로 나누고, 쪽지는 양옆이 파인 절취선으로 떼어 낸다 */
+.reco,
+.notice-ticket {
+  position: relative;
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
-  gap: var(--space-3);
-  padding: var(--space-4);
+  align-items: stretch;
   border-radius: var(--radius-card);
   background: var(--color-peach);
 }
 
-.trail { color: var(--color-dusk-blue); }
+/* 윗 띠: 대각선 줄무늬(Dusk Blue + Peach). 장식이라 정보를 담지 않고 화면 읽기에서 숨긴다 */
+.ticket__band {
+  height: var(--space-5);
+  border-radius: var(--radius-card) var(--radius-card) 0 0;
+  background: repeating-linear-gradient(135deg, var(--color-dusk-blue) 0 12px, var(--color-peach) 12px 24px);
+}
+
+.ticket__section {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border-top: 1px solid var(--color-border);
+}
+
+.ticket__section--first { border-top: 0; padding-top: var(--space-4); }
+
+/* 항공편 정보 (티켓 상단 아래, 보딩패스의 정보 칸): 라벨(14px Warm Gray) 위에 값(16px SemiBold)을 둔 항목을 2열로 놓는다. 추천 시각보다 눈에 덜 띄게 둔다 */
+.ticket__flight-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-3) var(--space-3);
+  align-self: stretch;
+  margin: 0;
+}
+
+.ticket__flight-item { display: flex; flex-direction: column; min-width: 0; }
+.ticket__flight-item dt { font-size: var(--fs-caption); line-height: var(--lh-caption); color: var(--color-warm-gray); }
+.ticket__flight-item dd { margin: 0; font-size: var(--fs-body); line-height: var(--lh-body); font-weight: 600; text-wrap: balance; }
+
+/* 쪽지: 절취선(점선) 아래. 선 양옆을 페이지 배경(Cream)색 원으로 파낸 것처럼 보이게 한다 */
+.ticket__stub {
+  position: relative;
+  margin-top: var(--space-3);
+  padding: var(--space-3) var(--space-4) var(--space-4);
+  border-top: 2px dashed var(--color-warm-gray);
+}
+
+.ticket__stub::before,
+.ticket__stub::after {
+  content: '';
+  position: absolute;
+  top: -13px;
+  width: var(--space-4);
+  height: var(--space-4);
+  border-radius: 50%;
+  background: var(--color-cream);
+}
+
+.ticket__stub::before { left: calc(var(--space-3) * -0.75); }
+.ticket__stub::after { right: calc(var(--space-3) * -0.75); }
 
 /* 다정한 말풍선: 모서리 20px, 한쪽만 4px */
-.bubble {
-  padding: var(--space-2) var(--space-3);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-bubble) var(--radius-bubble) var(--radius-bubble) var(--radius-bubble-tail);
-  background: var(--color-cream);
-  color: var(--color-ink);
+
+/* 상단 (DesignGuide 6장 "티켓 상단", 가정): 보딩패스처럼 왼쪽 추천 출발 시각 · 가운데 이동 픽토그램 · 오른쪽 만날 수 있는 시각.
+   윗줄은 라벨, 아랫줄은 시각이다. 라벨은 아래쪽 맞춤이라 오른쪽 라벨이 두 줄로 접혀도 시각의 높이가 흔들리지 않는다 */
+.reco__route {
+  align-self: stretch;
+  container-type: inline-size; /* 시각의 크기를 이 줄의 폭(cqw) 기준으로 정한다 */
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  column-gap: var(--space-1);
+  row-gap: var(--space-1);
+  align-items: end;
 }
 
-.reco__time-row { display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap; }
+.reco__subtitle { grid-column: 1; grid-row: 1; align-self: end; }
+/* 아랫줄의 두 시각은 글자 기준선(마지막 줄 기준)을 맞춘다 (날짜 라벨이 한쪽에만 있어도 시각이 같은 선 위에 놓인다) */
+.reco__time-row { grid-column: 1; grid-row: 2; align-self: last baseline; display: flex; align-items: center; gap: var(--space-2); white-space: nowrap; }
 .reco__time-group { display: flex; flex-direction: column; }
 
-.reco__day {
-  font-size: var(--fs-caption);
-  line-height: var(--lh-caption);
-  font-weight: 600;
-  color: var(--color-warm-gray);
-}
+/* 가운데: 아이콘 없이 두 시각 사이 남은 폭만큼 이어지는 점선(Dusk Blue 3px 둥근 점). 출발에서 만남까지 이어진다는 뜻이고 정보는 담지 않는다 */
+.reco__route-line { grid-column: 2; grid-row: 2; align-self: center; min-width: 0; height: 0; margin-inline: var(--space-1); border-top: var(--line-trail) dotted var(--color-dusk-blue); }
 
-/* 서비스에서 가장 눈에 띄는 글자 */
-.reco__time {
-  font-size: var(--fs-time);
+/* 라벨은 6자 이내("예상 만남")라 한 줄에 들어간다 */
+.reco__meet-label { grid-column: 3; grid-row: 1; align-self: end; margin: 0; white-space: nowrap; text-align: right; font-size: var(--fs-chip); line-height: var(--lh-chip); font-weight: 600; color: var(--color-warm-gray); }
+.reco__meet { grid-column: 3; grid-row: 2; align-self: last baseline; display: flex; flex-direction: column; align-items: flex-end; }
+.reco__day,
+.reco__meet-day { font-size: var(--fs-caption); line-height: var(--lh-caption); font-weight: 600; color: var(--color-warm-gray); }
+
+/* 상단의 두 시각(추천 출발 시각 · 예상 만남)은 같은 크기·굵기다. 서비스에서 가장 눈에 띄는 글자.
+   크기는 56px(--fs-time)가 상한이다. 두 시각이 나란히 들어가려면 56px에서 폭이 약 325px가 필요해, 그보다 좁은 줄에서는 둘이 같이 줄어든다.
+   (줄 폭 − 점선 최소 폭 24px − 열 사이 간격 8px) ÷ (시각 둘 × 시각 한 글자 폭 환산 2.95) */
+.reco__time,
+.reco__meet-time {
+  font-size: min(var(--fs-time), calc((100cqw - var(--space-5)) / 5.9));
   line-height: var(--lh-time);
   font-weight: 700;
+  white-space: nowrap;
 }
 
-.reco__lead { font-size: var(--fs-lead); line-height: var(--lh-lead); font-weight: 600; }
+/* 부제 "추천 출발 시간": 추천 시각 숫자 바로 위의 한 줄. 라벨 글자(14px SemiBold, Warm Gray) */
+.reco__subtitle { margin: 0; font-size: var(--fs-chip); line-height: var(--lh-chip); font-weight: 600; color: var(--color-warm-gray); }
 
-/* "출발" 알약: Departure Amber 위에는 Ink 글자 */
-.pill-depart {
+/* 상태 줄 (DesignGuide 6장, 가정): 말풍선이 아니라 다른 구역과 같은 구분선이 있는 평평한 한 줄. 왼쪽 원형 아이콘 + 한 문장 */
+.ticket__section.ticket__status { flex-direction: row; align-items: flex-start; gap: var(--space-3); }
+
+.ticket__status-icon {
+  flex: none;
   display: inline-flex;
   align-items: center;
-  padding: var(--space-1) var(--space-3);
-  border-radius: var(--radius-pill);
-  background: var(--color-amber);
-  color: var(--color-ink);
-  font-size: var(--fs-chip);
-  line-height: var(--lh-chip);
-  font-weight: 600;
+  justify-content: center;
+  width: var(--space-5);
+  height: var(--space-5);
+  border-radius: 50%;
 }
 
-/* 상태 배지: 아이콘 + 문구, 색만으로 구분하지 않는다 */
-.badge {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-2);
-  padding: var(--space-1) var(--space-3);
-  border-radius: var(--radius-pill);
-  font-size: var(--fs-chip);
-  line-height: var(--lh-chip);
-  font-weight: 600;
-}
+.ticket__status-text { margin: 0; padding-top: var(--space-1); font-weight: 600; }
 
-.badge--relaxed { background: var(--color-cream); color: var(--color-leaf); }
-.badge--soon { background: var(--color-amber); color: var(--color-ink); }
-.badge--changed { background: var(--color-cream); color: var(--color-dusk-blue); }
-.badge--stale { background: var(--color-cream); color: var(--color-sunset-deep); }
-.badge--passed { background: var(--color-sunset); color: var(--color-on-sunset); }
+/* 원 색: 지남 = Sunset + 흰색, 곧 출발 = Departure Amber(출발 신호) + Ink, 착륙 = Dusk Blue + 흰색. 문장은 항상 Ink */
+.ticket__status--passed .ticket__status-icon { background: var(--color-sunset); color: var(--color-on-sunset); }
+.ticket__status--soon .ticket__status-icon { background: var(--color-amber); color: var(--color-ink); }
+.ticket__status--touchdown .ticket__status-icon { background: var(--color-dusk-blue); color: var(--color-on-sunset); }
 
 /* 근거 칩 (높이 44px, 알약). 좁은 화면에서는 줄바꿈 */
 .chips { display: flex; flex-wrap: wrap; gap: var(--space-2); margin: 0; padding: 0; list-style: none; }
@@ -373,7 +712,223 @@ select.field__input { color: var(--color-ink); }
 
 button.chip { cursor: pointer; }
 
+/* 시간표 (DesignGuide 6장 "시간표", 가정): 정보를 세 가지로 갈라 모양과 간격으로 구분한다.
+   지점 = Cream 블록(이름 + 시각, 아이콘 원은 블록 밖 선 위), 구간 = 블록 밖 넓은 간격 안의 걸리는 시간, 근거 = 만날 수 있는 시각 블록 안쪽 아래.
+   칩 모양(알약)은 쓰지 않는다 */
+.route-group { display: flex; flex-direction: column; }
+
+.itinerary {
+  /* 아이콘 원의 가운데 높이: 블록 윗 여백 + 라벨 첫 줄의 절반. 원과 선의 시작·끝이 이 높이에 맞는다 */
+  --stop-axis: calc(var(--space-3) + var(--lh-caption) * var(--fs-caption) / 2);
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
+  list-style: none;
+  border-top: 1px solid var(--color-border);
+}
+
+/* 한 줄: 아이콘 원(32px) | 블록(지점) 또는 구간 내용 */
+.itinerary > li { position: relative; display: grid; grid-template-columns: var(--space-5) 1fr; column-gap: var(--space-3); }
+
+/* 블록 사이 간격: 구간 정보는 블록 안으로 들어갔으므로 블록 사이에는 선만 보인다 */
+.itinerary > .itinerary__stop--depart,
+.itinerary > .itinerary__stop--terminal { padding-bottom: var(--space-4); }
+
+/* 아이콘들을 잇는 선: Dusk Blue 3px(항적선과 같은 두께). 원 뒤로 지나가고 첫·끝 원의 가운데에서 시작·끝난다.
+   ::before = 지점 윗부분에서 원 가운데까지, ::after = 원 가운데에서 지점 아랫부분까지. 줄마다 이어 붙이므로 끝을 둥글게 하지 않는다 */
+.itinerary > li::before,
+.itinerary > li::after {
+  content: '';
+  position: absolute;
+  left: calc(var(--space-5) / 2 - 1.5px);
+  width: var(--line-trail);
+  background: var(--color-dusk-blue);
+}
+
+.itinerary > li::before { top: 0; height: var(--stop-axis); }
+.itinerary > li::after { top: var(--stop-axis); bottom: 0; }
+.itinerary > .itinerary__stop--depart::before,
+.itinerary > .itinerary__stop--meet::after { display: none; }
+
+/* 도착 후 대기(터미널 도착 → 만날 수 있는 시각)는 우리가 재서 얻은 값이 아니라 정해 둔 설정값이라 점선으로 잇는다 (출발 → 터미널 도착, 이동은 실선) */
+.itinerary > .itinerary__stop--terminal::after,
+.itinerary > .itinerary__stop--meet::before { background: none; width: 0; border-left: var(--line-trail) dotted var(--color-dusk-blue); }
+
+/* 점선 원 아이콘: 절취선과 같은 점선 + Cream 바탕(선을 가리는 용도). 아이콘은 Dusk Blue. 블록 라벨 첫 줄과 가운데를 맞춘다 */
+.itinerary__badge {
+  position: relative;
+  grid-column: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--space-5);
+  height: var(--space-5);
+  z-index: 1; /* 원 가운데에서 시작하는 아래쪽 선(::after)이 원 위로 올라오지 않게 */
+  margin-top: calc(var(--stop-axis) - var(--space-5) / 2);
+  border: 1px dashed var(--color-warm-gray);
+  border-radius: 50%;
+  background: var(--color-cream);
+  color: var(--color-dusk-blue);
+}
+
+/* 지점 블록: Cream 바탕 + 1px Border + 모서리 12px + 안쪽 여백 16px. 왼쪽 이름·주소, 오른쪽 시각, 아래에 (있으면) 근거 줄 */
+.itinerary__block {
+  grid-column: 2;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  column-gap: var(--space-3);
+  row-gap: var(--space-2);
+  align-items: start;
+  min-width: 0;
+  padding: var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-input);
+  background: var(--color-cream);
+}
+
+/* "변경" 버튼 행은 터치 영역(44px) 안쪽에 이미 여백이 있어, 블록 아래 여백을 줄여 위아래가 비슷해 보이게 한다 */
+.itinerary__block:has(.itinerary__change) { padding-bottom: var(--space-2); }
+
+.itinerary__block > .itinerary__what { grid-column: 1; display: flex; flex-direction: column; min-width: 0; }
+
+.itinerary__when { grid-column: 2; display: flex; flex-direction: column; align-items: flex-end; text-align: right; }
+.itinerary__day { font-size: var(--fs-caption); line-height: var(--lh-caption); font-weight: 600; color: var(--color-warm-gray); }
+.itinerary__time { font-size: var(--fs-h3); line-height: var(--lh-h3); font-weight: 600; }
+/* 출발 시각은 위의 큰 추천 시각과 같은 값이라 한 단계 낮춘다. 터미널 도착·만날 수 있는 시각이 시간표의 20px다 */
+.itinerary__stop--depart .itinerary__time { font-size: var(--fs-body); line-height: var(--lh-body); }
+
+.itinerary__kind { text-wrap: balance; } /* 좁은 화면에서 "· 예상"만 따로 떨어지지 않게 라벨을 고르게 나눈다 */
+.itinerary__kind,
+.itinerary__sub { font-size: var(--fs-caption); line-height: var(--lh-caption); color: var(--color-warm-gray); text-wrap: pretty; } /* 주소 끝의 짧은 글자가 혼자 줄바꿈되지 않게 */
+.itinerary__place { font-size: var(--fs-body); line-height: var(--lh-body); font-weight: 600; }
+
+/* 딸린 정보 행(이동 · 도착 후 대기 · 비행기 도착 · 입국 후 만남까지): 블록 안쪽 아래. 구분선으로 결과(위)와 근거(아래)를 가른다. 라벨 14px Warm Gray + 값 16px SemiBold */
+.itinerary__basis {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: 0;
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--color-border);
+}
+
+/* 좁은 화면에서 라벨과 값이 한 줄에 안 들어가면 값이 아래 줄 오른쪽으로 내려간다 (글자 중간에서 끊기지 않게) */
+.itinerary__basis-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0 var(--space-3); }
+.itinerary__basis dt { font-size: var(--fs-caption); line-height: var(--lh-caption); color: var(--color-warm-gray); white-space: nowrap; }
+.itinerary__basis dd { display: inline-flex; align-items: center; gap: var(--space-1); margin: 0 0 0 auto; font-size: var(--fs-body); line-height: var(--lh-body); font-weight: 600; text-align: right; white-space: nowrap; }
+
+/* "변경" 글자 버튼 (설정값 행): 아이콘 없이 Sunset Deep 글자만. 터치 영역 44px 이상이고, 좌우 여백만큼 오른쪽으로 당겨 글자가 블록 안쪽 여백 끝에 맞는다 */
+.itinerary__change {
+  min-width: var(--size-touch-min);
+  min-height: var(--size-touch-min);
+  margin-right: calc(-1 * var(--space-2));
+  padding: 0 var(--space-2);
+  border: 0;
+  background: transparent;
+  color: var(--color-sunset-deep);
+  font: inherit;
+  font-size: var(--fs-body);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.itinerary__change:hover { text-decoration: underline; }
+
+/* 출발지 "변경" (출발 블록): 오른쪽 열을 두 줄로 나눠 위는 출발 시각, 아래는 이 버튼(주소 줄 높이)이다. 이름·주소는 두 줄에 걸쳐 시각과 겹치지 않는다 */
+.itinerary__stop--depart .itinerary__block > .itinerary__what { grid-row: 1 / span 2; }
+.itinerary__stop--depart .itinerary__when { grid-row: 1; }
+.itinerary__change--origin { grid-column: 2; grid-row: 2; align-self: end; }
+
+.itinerary__change:focus-visible,
+.icon-btn:focus-visible { outline: 2px solid var(--color-ink); outline-offset: 2px; }
+
+/* 확인 시각 줄 + 새로고침 아이콘 버튼 */
+.reco__foot { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); }
+.reco__checked { margin: 0; }
+
+.icon-btn {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--size-touch-min);
+  height: var(--size-touch-min);
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--color-sunset-deep);
+  cursor: pointer;
+}
+
+.icon-btn:disabled { opacity: 0.4; cursor: default; }
+
 .text-actions { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+
+/* 하단 버튼 그룹 (DesignGuide 6장 "하단 버튼 그룹", 가정, 사용자 요청: 아이콘 + 글자 알약 버튼 참고 이미지).
+   세 버튼이 같은 폭으로 나란하고, 아이콘이 위·글자가 아래다. 첫 버튼만 Ink 로 채우고 나머지는 Peach 바탕 + Border 선이다.
+   높이 64px(터치 영역 44px 이상), 글자는 14px SemiBold(칩 글자와 같다), 눌릴 때 살짝 눌리는 반응(150ms) */
+.action-bar { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-2); }
+
+.action-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-1);
+  min-height: 64px;
+  padding: var(--space-2) var(--space-1);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-pill);
+  background: var(--color-peach);
+  color: var(--color-ink);
+  cursor: pointer;
+  transition: transform var(--dur-fast) var(--ease);
+}
+
+.action-btn--filled { border-color: var(--color-ink); background: var(--color-ink); color: var(--color-cream); }
+.action-btn:active { transform: scale(0.98); }
+.action-btn:focus-visible { outline: 2px solid var(--color-ink); outline-offset: 2px; }
+.action-btn__label { font-size: var(--fs-chip); line-height: var(--lh-chip); font-weight: 600; white-space: nowrap; }
+
+/* 토스트 (DesignGuide 6장 "토스트", 가정): 화면 아래 가운데에 잠깐 떴다 사라지는 확인 문구. Ink 바탕 + Cream 글자(대비 15) */
+.toast-region {
+  position: fixed;
+  z-index: 60;
+  left: 0;
+  right: 0;
+  bottom: calc(var(--space-4) + env(safe-area-inset-bottom, 0px));
+  display: flex;
+  justify-content: center;
+  padding-inline: var(--space-3);
+  pointer-events: none;
+}
+
+.toast {
+  max-width: 440px;
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-button);
+  background: var(--color-ink);
+  color: var(--color-cream);
+  font-size: var(--fs-body);
+  line-height: var(--lh-body);
+  font-weight: 600;
+  text-align: center;
+  opacity: 0;
+  transform: translateY(var(--space-2));
+  transition: opacity var(--dur-base) var(--ease), transform var(--dur-base) var(--ease);
+}
+
+.toast.is-visible { opacity: 1; transform: none; }
+
+/* 알림 받기 팝업의 선택지: 칩 모양, 선택하면 Amber 배경 + Ink 글자 + 체크 아이콘(색만으로 구분하지 않는다) */
+.alert-options { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+.alert-option { cursor: pointer; }
+.alert-option__check { display: inline-flex; visibility: hidden; }
+.alert-option[aria-checked="true"] { border-color: var(--color-amber); background: var(--color-amber); }
+.alert-option[aria-checked="true"] .alert-option__check { visibility: visible; }
+.alert-option:focus-visible { outline: 2px solid var(--color-ink); outline-offset: 2px; }
 
 /* 여유 시간을 저장해 다시 계산됐을 때: 시각 숫자만 부드럽게 교체 (250ms) */
 .reco__time.is-updated { animation: time-swap var(--dur-base) var(--ease); }
@@ -469,32 +1024,116 @@ body.sheet-open { overflow: hidden; }
   to { opacity: 1; transform: none; }
 }
 
-/* 추천 출발 시각 카드가 나타날 때: 아래에서 위로 부드럽게 (250ms). 카드 안쪽만 바뀔 때는 바깥 section이 그대로라 다시 재생되지 않는다 */
-.reco { animation: card-rise var(--dur-base) var(--ease); }
+/* 티켓 출력 (DesignGuide 9장, 가정): 결과 카드가 화면 위쪽 슬롯에서 프린터처럼 위에서 아래로 출력된다. js/ui/motion/ticketPrint.js 가 재생한다.
+   시간·속도 값은 js/ui/motion/ticketPrintPlan.js 에 있다. 이전의 "아래에서 올라오는 카드 등장"(card-rise)은 이 모션이 대신한다.
+   애니메이션하는 속성은 clip-path(용지) · transform(종이 끝 그림자) · opacity(슬롯·액션)뿐이라 레이아웃이 바뀌지 않는다.
 
-@keyframes card-rise {
-  from { opacity: 0; transform: translateY(var(--space-3)); }
-  to { opacity: 1; transform: none; }
+   슬롯은 3겹이다. 종이가 슬롯 "안쪽 틈에서 나오는" 것처럼 보이게 한다. (참고 영상의 슬롯 확대 캡처 기준, 값은 추정 시작값)
+     1. .ticket-slot (맨 뒤)  알약 전체: 위쪽 띠 + 가운데 조금 밝은 틈 + 아래쪽 띠
+     2. .ticket-paper         용지. 틈에서 나와 아래쪽 띠 앞을 지나간다. 슬롯보다 좌우로 좁아 슬롯 양끝이 용지 바깥에 보인다
+     3. .ticket-lip (맨 앞)   알약의 위쪽 띠만 잘라낸 층. 용지 윗부분을 덮고, 그 아래에 그림자를 드리운다 */
+.ticket-stage {
+  --slot-height: var(--space-4); /* 알약 전체 두께(24px). ↑ 올리면 슬롯이 두꺼워지고 아래쪽 띠가 길어진다 */
+  --lip-height: 10px; /* 위쪽 띠 두께. ↑ 올리면 윗 띠가 두꺼워지고 틈이 아래로 내려간다 (추정값) */
+  --insert-depth: 8px; /* 용지 윗부분이 윗 띠 안으로 들어가 가려지는 길이. ↑ 올리면 더 깊이 꽂힌 느낌이 난다. 윗 띠 두께를 넘으면 용지가 띠 위로 비치므로 아래 --insert-eff 가 막는다 (추정값) */
+  --insert-eff: min(var(--insert-depth), var(--lip-height));
+  --slot-overhang: 12px; /* 슬롯이 용지보다 좌우로 더 넓은 길이. ↑ 올리면 슬롯 양끝이 더 많이 드러난다 (좌우 여백 20px 안, 추정값) */
+  --gap-height: 5px; /* 가운데 틈 두께. ↑ 올리면 틈이 더 도드라진다 (추정값) */
+  --gap-inset: var(--space-2); /* 틈이 알약 양끝에서 안쪽으로 들어간 길이. ↑ 올리면 틈이 짧아진다 (추정값) */
+  --slot-gap-color: color-mix(in srgb, var(--color-ink) 70%, var(--color-cream)); /* 틈 색: 바깥 어두운 색(Ink)보다 한 톤만 밝게. 크림 비율 ↑ 올리면 틈이 더 밝아진다 (추정값) */
+  --lip-shadow: 0 4px 6px rgba(46, 31, 26, 0.25); /* 윗 띠 아래 그림자. 번짐·농도 ↑ 올리면 슬롯이 무거워진다 (추정 시작값, 색은 Ink) */
+  --edge-height: 10px; /* 종이 끝 그림자 두께. ticketPrintPlan.js 의 EDGE_HEIGHT_PX 와 같다 (가정, 사용자 요청: 약 10px) */
+  position: relative;
 }
 
-/* 도착 정보가 바뀌어 다시 계산될 때: 시각 숫자 교체 + 항적선의 만나는 점이 새 위치로 이동 (400ms) */
+/* 용지: 변경 안내 띠 + 카드. 출력 중에만 clip-path 가 걸리고, 끝나면 걷어 낸다. 슬롯(뒤)보다 앞, 윗 띠(앞)보다 뒤다 */
+.ticket-paper {
+  position: relative;
+  z-index: 2;
+  display: block;
+}
+
+.ticket-slot,
+.ticket-lip,
+.ticket-edge { position: absolute; pointer-events: none; opacity: 0; }
+
+/* 1) 슬롯(맨 뒤): Ink(가장 어두운 토큰) 알약. 위쪽 띠는 --lip-height, 그 아래 틈(::before), 나머지는 아래쪽 띠다.
+   용지보다 좌우로 --slot-overhang 만큼 넓다. 위치는 윗 띠의 아래쪽이 용지 윗선보다 --insert-eff 만큼 아래에 오게 맞춘다 */
+.ticket-slot {
+  z-index: 1;
+  left: calc(-1 * var(--slot-overhang));
+  right: calc(-1 * var(--slot-overhang));
+  top: calc(var(--insert-eff) - var(--lip-height));
+  height: var(--slot-height);
+  border-radius: var(--radius-pill);
+  background: var(--color-ink);
+}
+
+/* 가운데 틈: 윗 띠 바로 아래. 양끝에서 안쪽으로 들어간 알약 모양이고, 용지가 나오기 전에는 이 밝은 틈이 보인다 */
+.ticket-slot::before {
+  content: '';
+  position: absolute;
+  top: var(--lip-height);
+  left: var(--gap-inset);
+  right: var(--gap-inset);
+  height: var(--gap-height);
+  border-radius: var(--radius-pill);
+  background: var(--slot-gap-color);
+}
+
+/* 3) 윗 띠(맨 앞): 알약과 같은 바깥 모양에서 위쪽 띠만 잘라낸다(clip-path). 곡선이 같아 이음새가 없다.
+   그림자는 잘린 모양 그대로 drop-shadow 로 드리워져 윗 띠 아래 용지 위에 위에서 아래로 옅어진다 */
+.ticket-lip {
+  z-index: 3;
+  left: calc(-1 * var(--slot-overhang));
+  right: calc(-1 * var(--slot-overhang));
+  top: calc(var(--insert-eff) - var(--lip-height));
+  height: var(--slot-height);
+  filter: drop-shadow(var(--lip-shadow));
+}
+
+.ticket-lip::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: var(--radius-pill);
+  background: var(--color-ink);
+  clip-path: inset(0 0 calc(var(--slot-height) - var(--lip-height)) 0);
+}
+
+/* 용지의 맨 위 요소(띠가 없으면 카드, 있으면 변경 안내)는 슬롯 안에서 나오므로 윗모서리가 평평하다. 아래쪽 모서리는 둥근 채로 둔다.
+   (윗모서리가 둥글면 윗 띠 아래로 크림색 빈틈이 보여 슬롯과 용지가 따로 떠 보인다)
+   슬롯이 사라지는 설정(KEEP_SLOT_VISIBLE = false)에서는 사라진 뒤 .slot-gone 이 붙어 둥근 윗모서리로 돌아온다 */
+.ticket-stage:not(.slot-gone) .ticket-paper > .slot:empty + #card-host > :first-child,
+.ticket-stage:not(.slot-gone) .ticket-paper > .slot:not(:empty) > :first-child {
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
+}
+
+.ticket-stage:not(.slot-gone) .ticket-paper > .slot:empty + #card-host > :first-child .ticket__band { border-radius: 0; }
+
+/* 종이 끝 그림자: 드러나는 아래쪽 끝에서 아래로 번지는 10px 그라데이션. 처음 값(8px, 농도 0.08)은 거의 보이지 않아 끝쪽을 조금 진하게 하고(0.14) 여러 단계로 부드럽게 줄였다.
+   용지 바깥 요소라 clip-path 에 잘리지 않는다. 색은 가이드의 떠 있는 카드 그림자(Ink)와 같다. will-change 는 출력 중에만 JS 가 켠다 */
+.ticket-edge {
+  z-index: 2;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: var(--edge-height);
+  background: linear-gradient(
+    to bottom,
+    rgba(46, 31, 26, 0.14) 0%,
+    rgba(46, 31, 26, 0.08) 30%,
+    rgba(46, 31, 26, 0.03) 65%,
+    rgba(46, 31, 26, 0) 100%
+  );
+}
+
+/* 도착 정보가 바뀌어 다시 계산될 때: 시각 숫자 교체 (400ms) */
 .reco__time.is-updated--large { animation-duration: var(--dur-large); }
 
-.trail.is-moving .trail__line { transform-origin: 0 16px; animation: trail-line var(--dur-large) var(--ease); }
-.trail.is-moving .trail__dot { animation: trail-dot var(--dur-large) var(--ease); }
-
-@keyframes trail-line {
-  from { transform: scaleX(0.8); }
-  to { transform: none; }
-}
-
-@keyframes trail-dot {
-  from { transform: translateX(-17.6px); }
-  to { transform: none; }
-}
-
-/* 출발할 시간이 되었을 때: "출발" 배지가 한 번만 살짝 커졌다 돌아온다 (250ms) */
-.pill-depart.is-pulse { animation: pill-pulse var(--dur-base) var(--ease) 1; }
+/* 출발할 시간이 되었을 때: 상태 줄의 아이콘 원이 한 번만 살짝 커졌다 돌아온다 (250ms) */
+.is-pulse { animation: pill-pulse var(--dur-base) var(--ease) 1; }
 
 @keyframes pill-pulse {
   50% { transform: scale(1.12); }
@@ -525,31 +1164,63 @@ button.chip:active { transform: scale(0.98); }
 
 /* 변경 안내 띠 (가이드 6장): Peach 배경, 왼쪽 Dusk Blue 4px 선 + 시계 아이콘, 글자 Dusk Blue */
 
+/* 변경 안내 = 비행기 티켓 (DesignGuide 6장, 가정): 위 구역(바뀐 항목) · 점선 절취선(양옆 홈) · 쪽지(안내 문장). 도착 정보 변경은 불안하지 않게 Dusk Blue 로 알린다 */
 .change-banner {
   display: flex;
-  align-items: flex-start;
-  gap: var(--space-3);
-  padding: var(--space-3) var(--space-4) var(--space-3) var(--space-3);
-  border-left: 4px solid var(--color-dusk-blue);
+  flex-direction: column;
   border-radius: var(--radius-card);
   background: var(--color-peach);
   color: var(--color-dusk-blue);
 }
 
-.change-banner__body { display: flex; flex-direction: column; gap: var(--space-2); min-width: 0; }
+.change-banner__top { padding: var(--space-3) var(--space-4); }
 
 .change-banner__rows {
   display: flex;
   flex-direction: column;
-  gap: var(--space-1);
+  gap: var(--space-2);
   margin: 0;
   padding: 0;
   list-style: none;
 }
 
+/* 한 줄: 왼쪽 라벨(14px SemiBold), 오른쪽 "이전(취소선) → 새 값". 새 값은 카드의 시각과 같은 20px SemiBold */
+.change-banner__row { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-3); }
+.change-banner__label { font-size: var(--fs-caption); line-height: var(--lh-caption); font-weight: 600; }
+.change-banner__value { display: inline-flex; align-items: baseline; gap: var(--space-2); white-space: nowrap; }
+
 /* 변경 전 값은 취소선, 새 값은 굵게. 화살표(→)와 문구도 함께 쓴다 */
-.change-banner__from { text-decoration: line-through; font-weight: 400; }
-.change-banner__lead { font-weight: 600; }
+.change-banner__from,
+.change-banner__arrow { font-size: var(--fs-caption); line-height: var(--lh-caption); font-weight: 400; }
+.change-banner__from { text-decoration: line-through; }
+.change-banner__value strong { font-size: var(--fs-h3); line-height: var(--lh-h3); font-weight: 600; }
+
+/* 쪽지: 점선 절취선 아래. 선 양옆을 페이지 배경(Cream)색 원으로 파낸 것처럼 보이게 한다 (항공편 결과 카드와 같은 규칙) */
+.change-banner__stub {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-3) var(--space-4);
+  border-top: 1px dashed var(--color-warm-gray);
+}
+
+.change-banner__stub::before,
+.change-banner__stub::after {
+  content: '';
+  position: absolute;
+  top: -9px;
+  width: var(--space-3);
+  height: var(--space-3);
+  border-radius: 50%;
+  background: var(--color-cream);
+}
+
+.change-banner__stub::before { left: calc(var(--space-2) * -1); }
+.change-banner__stub::after { right: calc(var(--space-2) * -1); }
+
+.change-banner__lead { display: flex; align-items: flex-start; gap: var(--space-2); font-weight: 600; }
+.change-banner__lead .icon { flex: none; margin-top: var(--space-1); }
 .change-banner__soft { color: var(--color-dusk-blue); }
 
 /* 제목 아래 보조 안내 묶음 */
@@ -626,3 +1297,151 @@ button.chip:active { transform: scale(0.98); }
 }
 
 .notice__text { font-size: var(--fs-body); line-height: var(--lh-body); }
+
+/* 안내 티켓 (DesignGuide 6장, 가정): 윗 띠 + 위 구역(핵심 문장 · 보조 문장) + (절취선 · 쪽지: 곁들이는 정보 · 행동).
+   띠·구역·절취선은 추천 출발 시각 카드의 .ticket__* 규칙을 그대로 쓴다. 글자·색은 단계마다 하나씩이다:
+   ① 핵심 문장 20px SemiBold Sunset Deep → ② 보조 문장 16px Regular Ink → ③ 곁들이는 정보 라벨 14px Warm Gray · 값 16px SemiBold Ink → ④ Text 버튼 */
+.notice-ticket__top { gap: var(--space-2); }
+
+.notice-ticket__lead {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  margin: 0;
+  color: var(--color-sunset-deep); /* Sunset Deep on Peach 4.69 (일반 글자 기준 4.5 통과) */
+  font-size: var(--fs-lead);
+  line-height: var(--lh-lead);
+  font-weight: 600;
+}
+
+.notice-ticket__lead .icon { flex: none; margin-top: var(--space-1); } /* 20px 아이콘을 첫 줄(28px) 가운데에 */
+
+/* 보조 문장은 핵심 문장 글자의 시작 위치(아이콘 20px + 간격)에 맞춘다 */
+.notice-ticket__detail { margin: 0; padding-left: calc(20px + var(--space-2)); font-size: var(--fs-body); line-height: var(--lh-body); }
+
+.notice-ticket .ticket__stub { display: flex; flex-direction: column; align-items: stretch; gap: var(--space-1); }
+
+.notice-ticket__fact { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-3); margin: 0; }
+.notice-ticket__fact-label { font-size: var(--fs-chip); line-height: var(--lh-chip); font-weight: 600; color: var(--color-warm-gray); }
+.notice-ticket__fact-value { font-size: var(--fs-body); line-height: var(--lh-body); font-weight: 600; }
+
+.notice-ticket .ticket__stub > .btn--text { align-self: flex-start; }
+.notice-ticket + .notice-ticket { margin-top: var(--space-3); }
+
+/* ───────── 온보딩 (DesignGuide 7장 "온보딩", 가정) ─────────
+   로고만 보이는 첫 화면 → 소개 3장 → 시작하기. 새 색·크기·간격은 쓰지 않고 기존 토큰만 쓴다. 그림 속 값은 장식용 예시다. */
+.app--intro .app__header { display: none; }
+
+.intro-splash {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  color: var(--color-dusk-blue);
+  cursor: pointer;
+}
+
+.intro-wordmark { margin-top: var(--space-3); color: var(--color-ink); font-size: var(--fs-h1); line-height: var(--lh-h1); font-weight: 700; }
+
+/* 두 선이 한 번 이어지고 멈춘다: 선이 그려지고(700ms) 만나는 점이 나타난다. 반복하지 않는다 */
+.intro-logo__line { stroke-dasharray: 1; stroke-dashoffset: 1; animation: intro-draw var(--dur-large) var(--ease) 150ms forwards; }
+.intro-logo__line--b { animation-delay: 300ms; }
+.intro-logo__dot { transform-box: fill-box; transform-origin: center; opacity: 0; animation: intro-dot var(--dur-base) var(--ease) 700ms forwards; }
+.intro-wordmark, .intro-splash .caption { opacity: 0; animation: intro-fade var(--dur-large) var(--ease) 800ms forwards; }
+
+@keyframes intro-draw { to { stroke-dashoffset: 0; } }
+@keyframes intro-dot { from { opacity: 0; transform: scale(0.4); } to { opacity: 1; transform: none; } }
+@keyframes intro-fade { to { opacity: 1; } }
+
+.intro-fade-in { animation: intro-fade-from var(--dur-base) var(--ease); }
+@keyframes intro-fade-from { from { opacity: 0; } to { opacity: 1; } }
+
+/* 소개 페이지: 옆으로 나란히 놓인 장을 translateX 로 넘긴다 (250ms) */
+.intro-pager { flex: 1; display: flex; overflow: hidden; touch-action: pan-y; }
+.intro-track { flex: 1; display: flex; min-width: 0; transition: transform var(--dur-base) var(--ease); }
+
+.intro-slide {
+  flex: 0 0 100%;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: var(--space-5);
+}
+
+.intro-art { display: flex; align-items: center; justify-content: center; height: calc(var(--space-9) * 3); } /* 장마다 그림 높이가 달라도 제목 위치가 같게 */
+.intro-copy { display: flex; flex-direction: column; gap: var(--space-3); min-height: calc(var(--space-9) + var(--space-6)); text-align: center; } /* 제목이 한 줄이어도 두 줄 높이만큼 비워 그림이 흔들리지 않게 */
+.intro-title { font-size: var(--fs-h2); line-height: var(--lh-h2); }
+.intro-body { color: var(--color-warm-gray); text-wrap: balance; }
+
+/* 그림 속 티켓: 추천 카드와 같은 Peach + 줄무늬 윗 띠. 안에서 누를 것은 없다 */
+.intro-ticket { width: 100%; border-radius: var(--radius-card); background: var(--color-peach); overflow: hidden; }
+.intro-ticket__body { display: flex; flex-direction: column; gap: var(--space-3); padding: var(--space-3) var(--space-4) var(--space-4); }
+.intro-ticket__times { display: flex; align-items: flex-end; gap: var(--space-2); }
+.intro-ticket__col { display: flex; flex-direction: column; }
+.intro-ticket__col--end { align-items: flex-end; text-align: right; }
+.intro-ticket__label { font-size: var(--fs-chip); line-height: var(--lh-chip); font-weight: 600; color: var(--color-warm-gray); }
+.intro-ticket__time { font-size: var(--fs-h1); line-height: var(--lh-time); font-weight: 700; }
+/* 가운데 점선: 출발에서 만남까지 이어진다는 뜻만 담는다 (추천 카드 상단과 같다) */
+.intro-ticket__basis { margin-top: calc(-1 * var(--space-2)); font-size: var(--fs-caption); line-height: var(--lh-caption); color: var(--color-ink); }
+.intro-ticket__dots { flex: 1; min-width: var(--space-3); height: 0; margin-bottom: var(--space-3); border-top: var(--line-trail) dotted var(--color-dusk-blue); }
+
+/* 3장: 바뀐 항목 비교 (이전 시각 취소선 → 새 시각). Dusk Blue, Peach 위 대비 7.20 */
+.intro-ticket--change { color: var(--color-dusk-blue); }
+.intro-ticket--change .caption { color: var(--color-warm-gray); }
+.intro-change__row { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-3); }
+.intro-change__label { font-size: var(--fs-chip); line-height: var(--lh-chip); font-weight: 600; }
+.intro-change__values { font-size: var(--fs-caption); }
+.intro-change__values b { font-size: var(--fs-h3); line-height: var(--lh-h3); font-weight: 600; }
+/* 취소선은 글자 위에 선이 그어지는 모션이라 text-decoration 대신 ::after 선을 쓴다 (읽기용 이름은 role=img 의 aria-label) */
+.intro-change__old { position: relative; display: inline-block; }
+.intro-change__old s { text-decoration: none; }
+.intro-change__old::after { content: ''; position: absolute; left: 0; right: 0; top: 50%; height: 1px; background: currentColor; transform-origin: left; transform: scaleX(1); }
+/* 3장이 보일 때: 이전 값에 취소선이 그어진 뒤(250ms) 새 값이 나타난다(250ms). 장을 떠나면 처음 상태로 돌아가 다시 보일 때 재생된다 */
+.intro-slide:not(.is-active) .intro-change__old::after { transform: scaleX(0); }
+.intro-slide:not(.is-active) .intro-change__new { opacity: 0; }
+.intro-slide.is-active .intro-change__old::after { animation: intro-strike var(--dur-base) var(--ease) 600ms backwards; }
+.intro-slide.is-active .intro-change__new { animation: intro-fade-from var(--dur-base) var(--ease) 850ms backwards; }
+.intro-slide.is-active .intro-change__row:nth-child(2) .intro-change__old::after { animation-delay: 700ms; }
+.intro-slide.is-active .intro-change__row:nth-child(2) .intro-change__new { animation-delay: 950ms; }
+.intro-slide.is-active .intro-change__row:nth-child(3) .intro-change__old::after { animation-delay: 800ms; }
+.intro-slide.is-active .intro-change__row:nth-child(3) .intro-change__new { animation-delay: 1050ms; }
+@keyframes intro-strike { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+/* 움직임 줄이기: 모션 없이 취소선과 새 값을 바로 보여 준다 */
+@media (prefers-reduced-motion: reduce) {
+  .intro-slide .intro-change__old::after { transform: scaleX(1) !important; animation: none !important; }
+  .intro-slide .intro-change__new { opacity: 1 !important; animation: none !important; }
+}
+.intro-change__note { display: flex; gap: var(--space-2); padding-top: var(--space-3); border-top: 1px dashed var(--color-warm-gray); font-weight: 600; }
+.intro-change__note .icon { flex: none; }
+
+/* 2장: 점선 원 + Dusk Blue 3px 선으로 이어진 세 단계 (시간표와 같은 모양) */
+.intro-steps { position: relative; display: flex; flex-direction: column; gap: var(--space-4); width: 100%; margin: 0; padding: 0; list-style: none; }
+.intro-steps::before { content: ''; position: absolute; top: var(--space-4); bottom: var(--space-4); left: calc(var(--space-5) / 2 - 1.5px); width: var(--line-trail); background: var(--color-dusk-blue); }
+.intro-steps li { position: relative; display: flex; align-items: center; gap: var(--space-3); }
+.intro-steps__badge {
+  position: relative; /* 선 위에 올라오게 */
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--space-5);
+  height: var(--space-5);
+  border: 1px dashed var(--color-warm-gray);
+  border-radius: 50%;
+  background: var(--color-cream);
+  color: var(--color-dusk-blue);
+}
+/* 결과 단계(③)는 남색으로 채운 원 + 흰 아이콘 (흰색 on Dusk Blue 대비 8.36). 입력 단계(①②)는 점선 원이다 */
+.intro-steps__badge--result { border: 1px solid var(--color-dusk-blue); background: var(--color-dusk-blue); color: var(--color-on-sunset); }
+.intro-steps__text { display: flex; flex-direction: column; min-width: 0; padding: var(--space-2) var(--space-3); border: 1px solid var(--color-border); border-radius: var(--radius-input); flex: 1; }
+.intro-steps__text strong { font-size: var(--fs-body); font-weight: 600; }
+
+/* 아래 고정 영역: 진행 점 → Primary → 가운데 정렬 Text 버튼 */
+.intro-dots { display: flex; justify-content: center; align-items: center; gap: var(--space-2); padding-bottom: var(--space-2); }
+.intro-dots__dot { width: var(--space-2); height: var(--space-2); border-radius: var(--radius-pill); background: var(--color-border); transition: width var(--dur-base) var(--ease), background-color var(--dur-base) var(--ease); }
+/* 지금 장은 점이 길어지고 Ink 로 바뀐다 (색만으로 구분하지 않는다. 화면 읽기에는 "3단계 중 1단계") */
+.intro-dots__dot.is-current { width: var(--space-4); background: var(--color-ink); }
+.intro-second { align-self: center; }

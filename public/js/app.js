@@ -1,13 +1,18 @@
-// 진입점: 해시 라우팅(#/flight, #/confirm, #/origin, #/result)과 화면 교체.
+// 진입점: 해시 라우팅(#/intro, #/flight, #/confirm, #/origin, #/result)과 화면 교체.
 import { load } from './store.js';
 import { ADDRESS_ROUTE_IS_MOCK } from './config.js';
 import { mockBadgeText } from './domain/mockBadge.js';
 import { clockNow, clockToday, isScenarioMode } from './clock.js';
 import { getScenario } from './mock/scenarios.js';
+import { shouldShowOnboarding } from './domain/onboarding.js';
+import { renderOnboarding } from './ui/screens/onboarding.js';
 import { renderFlightConfirm } from './ui/screens/flightConfirm.js';
 import { renderFlightSearch } from './ui/screens/flightSearch.js';
 import { renderOriginSetup } from './ui/screens/originSetup.js';
 import { renderResult } from './ui/screens/result.js';
+import { initSideBackground } from './ui/components/sideBackground.js';
+import { FADE_EASE, planFadeOut } from './ui/motion/ticketPrintPlan.js';
+import { prefersReducedMotion, ticketAlreadyPrinted } from './ui/motion/ticketPrint.js';
 
 const header = document.querySelector('.app__header');
 const main = document.querySelector('.app__main');
@@ -26,6 +31,7 @@ const ctx = {
 const ROUTES = ['flight', 'confirm', 'origin', 'result'];
 
 const SCREENS = {
+  intro: renderOnboarding,
   flight: renderFlightSearch,
   confirm: renderFlightConfirm,
   origin: renderOriginSetup,
@@ -34,6 +40,8 @@ const SCREENS = {
 
 function currentRoute() {
   const name = location.hash.replace(/^#\/?/, '');
+  // 온보딩: 주소 #/intro 로는 언제든 볼 수 있고, 처음 들어온 빈 탭이면 자동으로 먼저 보인다.
+  if (name === 'intro' || shouldShowOnboarding(load(), { scenarioMode: isScenarioMode() })) return 'intro';
   const route = ROUTES.includes(name) ? name : 'flight';
 
   // 앞 단계를 거치지 않고 주소로 바로 들어오면, 갈 수 있는 가장 가까운 앞 단계로 보낸다.
@@ -62,12 +70,37 @@ function playScreenIn(direction) {
   }
 }
 
+let transitionRun = 0;
+
+/**
+ * 결과 화면으로 들어갈 때만, 이전 화면(입력·로딩)이 먼저 페이드 아웃한 뒤 새 화면으로 바꾼다. (티켓 출력 모션의 1단계)
+ * 페이드 아웃 중에 주소가 또 바뀌면 이 전환은 버리고 새 전환이 처리한다. 움직임 줄이기가 켜져 있으면 바로 바꾼다.
+ */
+async function renderWithTransition() {
+  const run = (transitionRun += 1);
+  const fadeMs = currentRoute() === 'result' && !firstRender && previousRoute !== 'result'
+    ? planFadeOut({ reducedMotion: prefersReducedMotion(), hasPrinted: ticketAlreadyPrinted() })
+    : 0;
+  if (fadeMs > 0) {
+    const fades = [main, footer].map((el) => el.animate({ opacity: [1, 0] }, { duration: fadeMs, easing: FADE_EASE, fill: 'forwards' }));
+    await Promise.all(fades.map((a) => a.finished.catch(() => {})));
+    if (run !== transitionRun) {
+      fades.forEach((a) => a.cancel());
+      return;
+    }
+    fades.forEach((a) => a.cancel()); // 같은 작업 안에서 바로 새 화면을 그리므로 깜빡이지 않는다.
+  }
+  render();
+}
+
 function render() {
   const route = currentRoute();
   if (location.hash !== `#/${route}`) history.replaceState(null, '', `#/${route}`);
 
   main.replaceChildren();
   footer.replaceChildren();
+  footer.classList.remove('intro-fade-in');
+  document.querySelector('.app').classList.toggle('app--intro', route === 'intro'); // 온보딩에서는 상단 로고 줄을 숨긴다(로고가 화면 가운데에 크게 있다)
   SCREENS[route]({ main, footer }, ctx);
   window.scrollTo(0, 0);
 
@@ -97,5 +130,6 @@ function renderMockBadge() {
 }
 
 renderMockBadge();
-window.addEventListener('hashchange', render);
+window.addEventListener('hashchange', renderWithTransition);
 render();
+initSideBackground(); // 양옆 모션 배경 (768px 이상에서만 만든다)

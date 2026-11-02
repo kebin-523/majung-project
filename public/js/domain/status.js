@@ -30,9 +30,10 @@ export function shouldAutoRecheck({ now, lastChecked, alreadyTried }) {
  * @param {number|string|Date|null} input.lastChecked   마지막으로 최신 정보를 확인한 시각
  * @param {boolean} [input.hasUnseenChange]             아직 사용자가 확인하지 않은 도착 정보 변경이 있는가
  * @param {boolean} [input.landed]                      이미 도착한 항공편인가 (API가 상태를 제공할 때만 true)
+ * @param {number} [input.soonMin]                      추천 출발 몇 분 전부터 "곧 출발"로 볼까. 기본은 config 의 SOON_THRESHOLD_MIN (사용자의 "알림 받기" 설정이 이 값을 정한다)
  * @returns {'landed'|'passed'|'stale'|'changed'|'soon'|'relaxed'}
  */
-export function resolveBadge({ now, departure, lastChecked, hasUnseenChange = false, landed = false }) {
+export function resolveBadge({ now, departure, lastChecked, hasUnseenChange = false, landed = false, soonMin = SOON_THRESHOLD_MIN }) {
   // 이미 도착했다면 추천 시각 자체가 의미 없으므로 배지 우선순위와 별개로 먼저 처리한다.
   if (landed) return 'landed';
 
@@ -43,7 +44,7 @@ export function resolveBadge({ now, departure, lastChecked, hasUnseenChange = fa
     passed: untilDepartureMs < 0,
     stale: isStale({ now: nowMs, lastChecked }),
     changed: hasUnseenChange,
-    soon: untilDepartureMs <= minutes(SOON_THRESHOLD_MIN),
+    soon: untilDepartureMs <= minutes(soonMin),
     relaxed: true,
   };
 

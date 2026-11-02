@@ -89,4 +89,12 @@ export function formatSpokenWithDay(value, nowValue) {
   return `${isSameDayKst(value, nowValue) ? '' : `${dayLabel(value, nowValue)} `}${formatSpoken(value)}`;
 }
 
+/** "오늘 · 10월 29일" / "10월 31일" (라벨이 이미 날짜면 한 번만) */
+export function formatDateLabel(value, nowValue) {
+  const { m, d } = partsKst(value);
+  const date = `${m}월 ${d}일`;
+  const label = dayLabel(value, nowValue);
+  return label === date ? date : `${label} · ${date}`;
+}
+
 export const minutes = (n) => n * MIN;

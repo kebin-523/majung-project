@@ -52,3 +52,30 @@ test('readSavedWindow: 깨졌거나 범위를 벗어난 값은 null', () => {
     assert.equal(readSavedWindow({ mode: 'window', from, to }), null, `${from}~${to}`);
   }
 });
+
+// 시간 목록 (시간 선택 패널)
+import { formatHour, fromHourOptions, toHourOptions } from '../public/js/domain/timeWindow.js';
+
+test('formatHour: 두 자리 24시간제, 24 는 "24:00"', () => {
+  assert.equal(formatHour(0), '00:00');
+  assert.equal(formatHour(9), '09:00');
+  assert.equal(formatHour(24), '24:00');
+});
+
+test('fromHourOptions: 0~23시 24개', () => {
+  const options = fromHourOptions();
+  assert.equal(options.length, 24);
+  assert.deepEqual(options[0], { hour: 0, label: '00:00' });
+  assert.deepEqual(options[23], { hour: 23, label: '23:00' });
+});
+
+test('toHourOptions: 시작 다음 시각부터 최대 3시간 뒤까지', () => {
+  assert.deepEqual(toHourOptions(17).map((o) => o.hour), [18, 19, 20]);
+  assert.equal(toHourOptions(17)[0].label, '18:00');
+});
+
+test('toHourOptions: 24시까지만, 자정을 넘기지 않는다', () => {
+  assert.deepEqual(toHourOptions(22).map((o) => o.hour), [23, 24]);
+  assert.deepEqual(toHourOptions(23).map((o) => o.hour), [24]);
+  assert.equal(toHourOptions(23)[0].label, '24:00');
+});

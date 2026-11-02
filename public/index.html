@@ -13,27 +13,11 @@
 </head>
 <body>
   <!--
-    양옆 모션 배경 (768px 이상에서만 보인다). 장식일 뿐이라 글자·버튼·정보를 두지 않고, 화면 읽기 프로그램에서는 숨긴다.
-    색은 Cream·Peach·Dusk Blue(선)만 쓴다. 움직임은 css/layout.css에서 정의하고, "움직임 줄이기"가 켜져 있으면 멈춘다.
+    양옆 모션 배경 (768px 이상에서만 보인다): 점선 항적을 따라 비행기가 천천히 난다. 장식일 뿐이라 글자·버튼·정보를 두지 않고, 화면 읽기 프로그램에서는 숨긴다.
+    SVG 는 js/ui/components/sideBackground.js 가 768px 이상일 때만 채운다. (767px 이하에서는 아예 만들지 않는다)
+    색은 Cream·Peach·Dusk Blue 만 쓴다. 모양·움직임은 css/layout.css 에서 정하고, "움직임 줄이기"가 켜져 있으면 멈춘다.
   -->
-  <div class="side-bg" aria-hidden="true">
-    <svg class="side-bg__panel side-bg__panel--left" viewBox="0 0 400 800" preserveAspectRatio="xMaxYMid slice" focusable="false">
-      <path class="side-bg__shape side-bg__shape--a" d="M0 0H330C370 180 280 340 330 500C360 620 300 720 340 800H0Z"/>
-      <path class="side-bg__shape side-bg__shape--b" d="M0 120H210C250 260 190 380 230 520C250 600 210 700 240 800H0Z"/>
-      <path class="side-bg__line side-bg__line--1" d="M-20 120C140 120 270 380 392 400"/>
-      <path class="side-bg__line side-bg__line--2" d="M-20 300C160 300 280 400 392 400"/>
-      <path class="side-bg__line side-bg__line--3" d="M-20 520C160 520 280 420 392 400"/>
-      <path class="side-bg__line side-bg__line--4" d="M-20 700C140 700 270 430 392 400"/>
-    </svg>
-    <svg class="side-bg__panel side-bg__panel--right" viewBox="0 0 400 800" preserveAspectRatio="xMaxYMid slice" focusable="false">
-      <path class="side-bg__shape side-bg__shape--a" d="M0 0H330C370 180 280 340 330 500C360 620 300 720 340 800H0Z"/>
-      <path class="side-bg__shape side-bg__shape--b" d="M0 120H210C250 260 190 380 230 520C250 600 210 700 240 800H0Z"/>
-      <path class="side-bg__line side-bg__line--1" d="M-20 120C140 120 270 380 392 400"/>
-      <path class="side-bg__line side-bg__line--2" d="M-20 300C160 300 280 400 392 400"/>
-      <path class="side-bg__line side-bg__line--3" d="M-20 520C160 520 280 420 392 400"/>
-      <path class="side-bg__line side-bg__line--4" d="M-20 700C140 700 270 430 392 400"/>
-    </svg>
-  </div>
+  <div class="side-bg" aria-hidden="true"></div>
 
   <div class="app">
     <header class="app__header">

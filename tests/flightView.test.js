@@ -4,7 +4,6 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { lastConfirmedAt, resolveFlightView } from '../public/js/domain/status.js';
 import { minutes, toMs } from '../public/js/domain/time.js';
-import { renderBadge } from '../public/js/ui/components/badge.js';
 import { buildResultViewModel } from '../public/js/ui/screens/result.js';
 
 // 어댑터가 만드는 모양: landed 는 status 가 arrived 일 때만 true
@@ -50,13 +49,13 @@ const NOW = toMs('2026-10-30 14:00');
 const drive = { minutes: 60 };
 const buffers = { airportBufferMin: 20, meetupMin: 40 };
 
-test('도착한 편으로 카드 값을 계산해도 "landed" 배지 키가 나오지 않아 renderBadge 가 던지지 않는다', () => {
+test('도착한 편으로 카드 값을 계산해도 "landed" 상태 키가 나오지 않는다 (도착한 편은 카드 대신 안내 상자로 간다)', () => {
   const arrivedFlight = {
     scheduled: NOW + minutes(300), changed: null, fetchedAt: NOW, receivedAt: NOW, status: 'arrived', landed: true,
   };
   const vm = buildResultViewModel({ flight: arrivedFlight, drive, buffers, now: NOW });
   assert.notEqual(vm.badgeKey, 'landed');
-  assert.doesNotThrow(() => renderBadge(vm.badgeKey));
+  assert.ok(!['landed'].includes(vm.statusKind));
 });
 
 test('lastConfirmedAt: 응답을 받은 시각이 우선이고, 서버 시각은 예전 저장값에만 대신 쓴다', () => {

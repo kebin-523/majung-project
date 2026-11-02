@@ -26,7 +26,7 @@ export const MOCK_LATENCY_MS = 300; // 실제 API처럼 응답에 시간이 걸�
 // 데모 시계: 오늘(한국 날짜)의 고정 시각에서 출발해, 페이지를 연 뒤 지난 시간만큼 흐른다.
 // 실제 시각을 쓰면 밤에 열 때마다 "출발 시각 지남"이 나오므로 목업에서만 이렇게 고정한다.
 const DEFAULT_CLOCK = '14:00';
-const SCENARIO_CLOCK = { passed: '16:00', recheckfail: '16:00' };
+const SCENARIO_CLOCK = { passed: '17:30', recheckfail: '17:30' }; // 추천 출발(= 비행기 도착 + 입국 후 − 여유 − 이동, 예: 17:50 − 55분 = 16:55)이 이미 지난 때
 // 데모 시계가 흐르는 속도. 기본은 실제와 같다(1배). later-* 는 11배라 실제 1분이 데모 11분이다. (오래됨 기준 10분을 1분 상태 점검 틱에 넘긴다)
 export const SCENARIO_SPEED = { 'later-touchdown': 11, 'later-arrived': 11, 'later-unknown': 11 };
 const loadedAt = Date.now();

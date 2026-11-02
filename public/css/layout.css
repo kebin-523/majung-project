@@ -82,23 +82,33 @@
   .side-bg__panel--left { left: 0; }
   .side-bg__panel--right { right: 0; transform: scaleX(-1); } /* 왼쪽을 뒤집어 두 길이 가운데로 모이게 */
 
-  /* 항적선: 불투명도를 낮춘 Dusk Blue 3px 선. 양옆 배경에서는 Amber·Sunset을 쓰지 않는다. */
+  /* 면: Peach 두 장. 양옆 배경에서는 Amber·Sunset을 쓰지 않는다. */
   .side-bg__shape { fill: var(--color-peach); }
   .side-bg__shape--a { opacity: 0.7; }
   .side-bg__shape--b { opacity: 0.55; }
 
-  .side-bg__line {
+  /* 점선 항적: 불투명도를 낮춘 Dusk Blue 3px 둥근 점. 간격은 화면 기준 9px이다. */
+  .side-bg__trail {
     fill: none;
     stroke: var(--color-dusk-blue);
-    stroke-opacity: 0.25;
-    stroke-width: 3px;
+    stroke-opacity: 0.38;
+    stroke-width: var(--line-trail);
     stroke-linecap: round;
+    stroke-dasharray: 0.1 9;
     vector-effect: non-scaling-stroke;
   }
 
-  /* 아주 느리고 부드럽게: 한 주기 24초 이상, 움직임 폭은 작게, ease-in-out. 깜빡임·갑작스러운 이동 없음 */
-  .side-bg__shape,
-  .side-bg__line {
+  /* 비행기: 항적과 같은 Dusk Blue. 불투명도와 궤도를 따라 도는 움직임은 SVG(animateMotion)가 맡는다. */
+  .side-bg__glyph {
+    fill: var(--color-dusk-blue);
+    stroke: var(--color-dusk-blue);
+    stroke-width: 2px;
+    stroke-linejoin: round;
+    stroke-linecap: round;
+  }
+
+  /* 면만 아주 느리고 부드럽게: 한 주기 30초 이상, 움직임 폭은 작게, ease-in-out. 깜빡임·갑작스러운 이동 없음 */
+  .side-bg__shape {
     animation-timing-function: ease-in-out;
     animation-iteration-count: infinite;
     animation-direction: alternate;
@@ -106,23 +116,8 @@
 
   .side-bg__shape--a { animation-name: side-shape-drift-a; animation-duration: 36s; }
   .side-bg__shape--b { animation-name: side-shape-drift-b; animation-duration: 30s; }
-  .side-bg__line--1 { animation-name: side-drift-a; animation-duration: 24s; }
-  .side-bg__line--2 { animation-name: side-drift-b; animation-duration: 28s; }
-  .side-bg__line--3 { animation-name: side-drift-a; animation-duration: 32s; animation-delay: -8s; }
-  .side-bg__line--4 { animation-name: side-drift-b; animation-duration: 26s; animation-delay: -12s; }
 
-  /* 선: 패널 너비의 10% 안팎. 눈에 띄되 천천히 흐르는 정도 */
-  @keyframes side-drift-a {
-    from { transform: translate(0, 0); }
-    to { transform: translate(-48px, 40px); }
-  }
-
-  @keyframes side-drift-b {
-    from { transform: translate(0, 0); }
-    to { transform: translate(36px, -44px); }
-  }
-
-  /* 면: 선의 절반 폭. 면의 가장자리가 크게 흔들리면 어색해 보여서 더 작게 움직인다 */
+  /* 면: 가장자리가 크게 흔들리면 어색해 보여서 작게 움직인다 (최대 약 24px) */
   @keyframes side-shape-drift-a {
     from { transform: translate(0, 0); }
     to { transform: translate(-24px, 20px); }
@@ -133,9 +128,8 @@
     to { transform: translate(18px, -22px); }
   }
 
-  /* 움직임 줄이기: 움직임을 멈추고, 곡선이 그려진 정지된 배경으로 보여 준다 */
+  /* 움직임 줄이기: 면의 움직임을 멈춘다. 비행기는 sideBackground.js 가 SVG 애니메이션을 멈춰, 항적 위에 서 있는 정지된 배경이 된다 */
   @media (prefers-reduced-motion: reduce) {
-    .side-bg__shape,
-    .side-bg__line { animation: none; }
+    .side-bg__shape { animation: none; }
   }
 }

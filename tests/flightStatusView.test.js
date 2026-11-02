@@ -32,19 +32,34 @@ const view = (flight, arrivalFromNowMin) =>
     now: NOW,
   });
 
-test('착륙한 편은 추천 카드를 유지하고 말풍선만 바뀐다', () => {
+test('착륙한 편은 추천 카드를 유지하고 상태 줄 문장만 바뀐다', () => {
   const vm = view({ status: 'touchdown' }, 300);
-  assert.equal(vm.bubbleText, '비행기가 착륙했어요, 입국 절차가 끝나면 만날 수 있어요.');
+  assert.equal(vm.statusText, '비행기가 착륙했어요, 입국 절차가 끝나면 만날 수 있어요.');
+  assert.equal(vm.statusKind, 'touchdown');
   assert.equal(vm.badgeKey, 'relaxed');
   assert.ok(vm.timeText && vm.arrivalText); // 근거 칩의 비행기 도착 시각은 그대로 있다
 });
 
-test('착륙한 편도 추천 시각이 지났다면 "지남" 말풍선이 먼저다', () => {
-  const vm = view({ status: 'touchdown' }, 60);
+test('착륙한 편도 추천 시각이 지났다면 "지남" 상태 줄이 먼저다', () => {
+  const vm = view({ status: 'touchdown' }, 30); // 추천 출발은 도착 40분 전(이동 60 + 공항 여유 20 − 입국 후 만남 40)이라 이미 10분 지났다
   assert.equal(vm.badgeKey, 'passed');
-  assert.equal(vm.bubbleText, '추천 출발 시각이 지났어요. 이동 시간을 다시 확인해 볼까요?');
+  assert.equal(vm.statusText, '추천 출발 시각이 지났어요. 이동 시간을 다시 확인해 볼까요?');
+  assert.equal(vm.statusKind, 'passed');
 });
 
-test('착륙이 아닌 편의 말풍선은 기본 문장', () => {
-  assert.equal(view({ status: 'none' }, 300).bubbleText, '곧 만나겠네요, 슬슬 준비해 볼까요?');
+test('평소 상태에는 상태 줄이 없다 (null)', () => {
+  const vm = view({ status: 'none' }, 300);
+  assert.equal(vm.statusText, null);
+  assert.equal(vm.statusKind, null);
+});
+
+test('곧 출발할 때는 "곧 나갈 시간이에요." 상태 줄이 나온다', () => {
+  const vm = view({ status: 'none' }, 70); // 비행기 도착 70분 뒤, 추천 출발은 30분 뒤
+  assert.equal(vm.badgeKey, 'soon');
+  assert.equal(vm.statusText, '곧 나갈 시간이에요.');
+  assert.equal(vm.statusKind, 'soon');
+});
+
+test('도착 변경·최신 정보 확인 못 함은 상태 줄을 만들지 않는다 (변경 안내와 확인 시각 줄이 각각 알린다)', () => {
+  assert.equal(view({ status: 'none' }, 300).statusKind, null);
 });

@@ -2,9 +2,11 @@
 import { searchFlights, searchFlightsByWindow } from '../../adapters/flightAdapter.js';
 import { WINDOW_MAX_HOURS } from '../../config.js';
 import { parseFlightNo } from '../../domain/flightNo.js';
-import { dayLabel } from '../../domain/time.js';
-import { clampToHour, defaultWindow, readSavedWindow, toHhmm } from '../../domain/timeWindow.js';
+import { dateRange, isSelectable } from '../../domain/calendar.js';
+import { clampToHour, defaultWindow, fromHourOptions, readSavedWindow, toHhmm, toHourOptions } from '../../domain/timeWindow.js';
 import { load, save } from '../../store.js';
+import { createDatePicker } from '../components/datePicker.js';
+import { createHourPicker } from '../components/hourPicker.js';
 import { icon } from '../components/icon.js';
 import { renderProgress } from '../components/progress.js';
 
@@ -21,14 +23,13 @@ const MODES = [
   { value: 'flightNo', label: '편명으로 찾기' },
   { value: 'window', label: '시간대로 찾기' },
 ];
-const pad2 = (n) => String(n).padStart(2, '0');
-const hourOption = (hour, selected) => `<option value="${hour}"${hour === selected ? ' selected' : ''}>${pad2(hour)}:00</option>`;
 
 export function renderFlightSearch({ main, footer }, ctx) {
   const today = ctx.today();
   const saved = load().search;
-  // 저장된 날짜가 이미 지난 날이면 오늘로 되돌린다.
-  const initialDate = saved?.date && saved.date >= today ? saved.date : today;
+  // 저장된 날짜가 고를 수 있는 범위(어제~6일 뒤) 밖이면 오늘로 되돌린다.
+  const range = dateRange(today);
+  const initialDate = saved?.date && isSelectable(saved.date, range.min, range.max) ? saved.date : today;
 
   main.innerHTML = `
     ${renderProgress(1)}
@@ -52,21 +53,17 @@ export function renderFlightSearch({ main, footer }, ctx) {
         <p id="flight-no-error" class="field__error" aria-live="polite"></p>
       </div>
       <div class="field">
-        <label class="field__label" for="arrival-date">도착 날짜</label>
-        <div class="date-field">
-          <span id="date-text" class="date-field__value tabular" aria-hidden="true"></span>
-          <span class="date-field__hint" aria-hidden="true">날짜 바꾸기</span>
-          <input id="arrival-date" class="date-field__input" type="date" min="${today}">
-        </div>
+        <span id="arrival-date-label" class="field__label">도착 날짜</span>
+        <div id="date-picker" class="date-picker"></div>
       </div>
       <div id="window-fields" class="field-row" hidden>
         <div class="field">
-          <label class="field__label" for="window-from">몇 시부터</label>
-          <select id="window-from" class="field__input tabular"></select>
+          <span id="window-from-label" class="field__label">몇 시부터</span>
+          <div id="window-from" class="hour-picker"></div>
         </div>
         <div class="field">
-          <label class="field__label" for="window-to">몇 시까지</label>
-          <select id="window-to" class="field__input tabular"></select>
+          <span id="window-to-label" class="field__label">몇 시까지</span>
+          <div id="window-to" class="hour-picker"></div>
         </div>
       </div>
       <div id="search-notice" aria-live="polite"></div>
@@ -77,18 +74,20 @@ export function renderFlightSearch({ main, footer }, ctx) {
   const form = main.querySelector('#flight-form');
   const flightInput = main.querySelector('#flight-no');
   const flightError = main.querySelector('#flight-no-error');
-  const dateInput = main.querySelector('#arrival-date');
-  const dateText = main.querySelector('#date-text');
   const notice = main.querySelector('#search-notice');
   const submitBtn = footer.querySelector('#submit-btn');
   const flightField = main.querySelector('#flight-field');
   const windowFields = main.querySelector('#window-fields');
-  const fromSelect = main.querySelector('#window-from');
-  const toSelect = main.querySelector('#window-to');
 
   flightInput.value = saved?.flightNo ?? '';
-  dateInput.value = initialDate;
-  updateDateText();
+  const datePicker = createDatePicker({
+    root: main.querySelector('#date-picker'),
+    labelId: 'arrival-date-label',
+    value: initialDate,
+    today,
+    now: ctx.now,
+    onChange: onDateChange,
+  });
 
   // 이전 버전에 저장된 값에는 mode 가 없다. 그때는 편명으로 찾기다.
   let mode = saved?.mode === 'window' ? 'window' : 'flightNo';
@@ -97,16 +96,35 @@ export function renderFlightSearch({ main, footer }, ctx) {
   let windowHours = savedWindow ?? defaultWindow(ctx.now(), initialDate, today);
   let windowTouched = savedWindow !== null;
 
-  function renderToOptions() {
-    const max = Math.min(windowHours.fromHour + WINDOW_MAX_HOURS, 24);
-    const hours = [];
-    for (let hour = windowHours.fromHour + 1; hour <= max; hour += 1) hours.push(hour);
-    toSelect.innerHTML = hours.map((hour) => hourOption(hour, windowHours.toHour)).join('');
-  }
+  const fromPicker = createHourPicker({
+    root: main.querySelector('#window-from'),
+    labelId: 'window-from-label',
+    title: '몇 시부터 고르기',
+    options: fromHourOptions(),
+    value: windowHours.fromHour,
+    onChange(fromHour) {
+      windowTouched = true;
+      windowHours = { fromHour, toHour: clampToHour(fromHour, windowHours.toHour) };
+      toPicker.setOptions(toHourOptions(fromHour), windowHours.toHour);
+      showNotice(null);
+    },
+  });
+  const toPicker = createHourPicker({
+    root: main.querySelector('#window-to'),
+    labelId: 'window-to-label',
+    title: '몇 시까지 고르기',
+    options: toHourOptions(windowHours.fromHour),
+    value: windowHours.toHour,
+    onChange(toHour) {
+      windowTouched = true;
+      windowHours = { ...windowHours, toHour };
+      showNotice(null);
+    },
+  });
 
   function renderWindow() {
-    fromSelect.innerHTML = Array.from({ length: 24 }, (_, hour) => hourOption(hour, windowHours.fromHour)).join('');
-    renderToOptions();
+    fromPicker.setValue(windowHours.fromHour);
+    toPicker.setOptions(toHourOptions(windowHours.fromHour), windowHours.toHour);
   }
 
   function applyMode() {
@@ -115,12 +133,7 @@ export function renderFlightSearch({ main, footer }, ctx) {
     windowFields.hidden = mode !== 'window';
   }
 
-  renderWindow();
   applyMode();
-
-  function updateDateText() {
-    dateText.textContent = dayLabel(`${dateInput.value} 12:00`, ctx.now());
-  }
 
   function showFieldError(text) {
     flightError.innerHTML = text ? `${icon('info')}<span>${text}</span>` : '';
@@ -171,14 +184,15 @@ export function renderFlightSearch({ main, footer }, ctx) {
 
     const from = toHhmm(windowHours.fromHour);
     const to = toHhmm(windowHours.toHour);
+    const arrivalDate = datePicker.getValue(); // 응답을 기다리는 사이 날짜가 바뀌어도 이 요청의 날짜로 저장한다.
 
     busy = true;
     setBusy(true);
     showNotice('loading');
     const result =
       submitMode === 'window'
-        ? await searchFlightsByWindow(dateInput.value, from, to)
-        : await searchFlights(parsed.value, dateInput.value);
+        ? await searchFlightsByWindow(arrivalDate, from, to)
+        : await searchFlights(parsed.value, arrivalDate);
     busy = false;
 
     if (!form.isConnected) return; // 응답을 기다리는 사이 다른 화면으로 이동했다.
@@ -195,7 +209,7 @@ export function renderFlightSearch({ main, footer }, ctx) {
       search: {
         mode: submitMode,
         flightNo: submitMode === 'flightNo' ? parsed.value : (saved?.flightNo ?? ''),
-        date: dateInput.value,
+        date: arrivalDate,
         // 시간대는 시간대로 찾았을 때만 저장한다. (편명 검색의 값이 "직접 고른 시간대"로 오해되지 않게)
         ...(submitMode === 'window' ? { from, to } : {}),
         results: result.data,
@@ -218,41 +232,17 @@ export function renderFlightSearch({ main, footer }, ctx) {
     showNotice(null);
   });
 
-  fromSelect.addEventListener('change', () => {
-    windowTouched = true;
-    const fromHour = Number(fromSelect.value);
-    windowHours = { fromHour, toHour: clampToHour(fromHour, windowHours.toHour) };
-    renderToOptions();
-    showNotice(null);
-  });
-
-  toSelect.addEventListener('change', () => {
-    windowTouched = true;
-    windowHours = { ...windowHours, toHour: Number(toSelect.value) };
-    showNotice(null);
-  });
-
   flightInput.addEventListener('input', () => {
     showFieldError(null);
     showNotice(null);
   });
 
-  dateInput.addEventListener('click', () => {
-    try {
-      dateInput.showPicker();
-    } catch {
-      // 지원하지 않는 브라우저는 기본 동작을 따른다.
-    }
-  });
-
-  dateInput.addEventListener('change', () => {
-    if (!dateInput.value) dateInput.value = today; // 날짜를 지우면 오늘로 되돌린다.
-    updateDateText();
+  function onDateChange(date) {
     // 시간대를 직접 고르지 않았다면 새 날짜에 맞는 기본 시간대로 바꾼다.
     if (!windowTouched) {
-      windowHours = defaultWindow(ctx.now(), dateInput.value, today);
+      windowHours = defaultWindow(ctx.now(), date, today);
       renderWindow();
     }
     showNotice(null);
-  });
+  }
 }
