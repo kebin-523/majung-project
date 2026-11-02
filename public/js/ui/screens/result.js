@@ -26,7 +26,6 @@ import { announcementFor, cardLeadSpoken, focusTargetAfterTransition } from '../
 import { TERMINAL_HOLD_MESSAGE } from '../../domain/routeNotice.js';
 import { terminalCodeOf } from '../../domain/terminal.js';
 import { createAutoRecheck } from '../../domain/autoRecheck.js';
-import { describeUntil } from '../../domain/countdown.js';
 import { isStale, lastConfirmedAt, resolveBadge, resolveFlightView } from '../../domain/status.js';
 import {
   dayLabel, formatClock, formatClockWithDay, formatDateLabel, formatSpoken, formatSpokenWithDay, isSameDayKst,
@@ -35,7 +34,7 @@ import { load, save } from '../../store.js';
 import { closeCurrentSheet, openBufferSheet } from '../components/bottomSheet.js';
 import { renderChangeBanner } from '../components/changeBanner.js';
 import { renderTimeline } from '../components/routeTimeline.js';
-import { renderCheckedLine, renderNowRow, renderRecommendCardContent } from '../components/recommendCard.js';
+import { renderCheckedLine, renderRecommendCardContent } from '../components/recommendCard.js';
 import { renderNoticeTicket } from '../components/noticeTicket.js';
 
 // 카드의 "상태 줄": 알려야 하는 경우(지남 · 착륙 · 곧 출발)에만 한 문장을 보여 준다. 평소 상태에는 없다. (사용자 요청)
@@ -120,17 +119,13 @@ export function buildResultViewModel({ flight, drive, buffers, now, hasChange = 
     departureDay: dayOrNull(departureMs, now),
     arrivalClock: formatClock(arrival),
     arrivalDay: dayOrNull(arrival, now),
-    // 지금 시각(기기 시계)과 추천 출발 시각까지 남은 시간. 남은 시간은 우리가 계산한 값이다.
-    nowText: formatClock(now),
-    nowSpoken: formatSpoken(now),
-    untilKind: describeUntil(departureMs, now).kind,
-    untilText: describeUntil(departureMs, now).text,
     terminalArrivalSpoken: formatSpokenWithDay(terminalArrivalMs, now),
     // 사용자가 앞서 고른 항공편 정보. 값이 없는 항목은 화면에서 만들지 않는다.
     flightNo: flight.flightNo || null,
     airline: flight.airline || null,
     departureCity: flight.departureCity || null,
     flightDateText: formatDateLabel(arrival, now),
+    terminalName: flight.terminal?.name || null, // API가 도착 터미널을 준 편만. 모르면 만들지 않는다
     originName: origin?.name ?? null,
     originAddress: origin?.address || null,
     // API가 터미널을 준 편만 터미널 이름을 붙인다. 모르면 "인천공항"만 쓴다. (없는 값을 만들지 않는다)
@@ -332,17 +327,6 @@ export function renderResult({ main }, ctx) {
     return host.contains(active) || actionsHost.contains(active) || noticeHost.contains(active) || active === changeBtn;
   }
 
-  /** "지금" 줄만 바꾼다. (카드 전체를 다시 그리거나 다시 읽어 주지 않는다. 값이 그대로면 아무것도 하지 않는다) */
-  function updateNowRow() {
-    const row = host.querySelector('.reco__now');
-    if (!row || !showsCard()) return;
-    const vm = makeVm();
-    const key = `${vm.nowText}|${vm.untilText}`;
-    if (row.dataset.key === key) return;
-    row.outerHTML = renderNowRow(vm);
-    host.querySelector('.reco__now').dataset.key = key;
-  }
-
   /** 확인 시각 줄만 바꾼다. (카드 전체를 다시 읽어 주지 않도록) */
   function updateCheckedLine() {
     const line = host.querySelector('.reco__checked');
@@ -538,7 +522,6 @@ export function renderResult({ main }, ctx) {
       clearInterval(timer); // 다른 화면으로 이동했다.
       return;
     }
-    updateNowRow(); // 1분마다 "지금" 줄의 시각과 남은 시간을 새로 쓴다.
     const screen = screenOf();
     if (screen === 'arrived') {
       clearInterval(timer); // 도착한 편은 더 확인하지 않는다. (호출 한도)
