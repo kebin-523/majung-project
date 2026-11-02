@@ -25,7 +25,7 @@ export function visibleSelection(visibleFlights, selectedId) {
   return visibleFlights.some((flight) => flight.flightId === selectedId) ? selectedId : null;
 }
 
-// ---------- 출발 도시 검색 ----------
+// ---------- 출발 도시·항공사 검색 ----------
 
 /** 검색에서 무시하는 글자: 공백, "/", 괄호, 가운뎃점, 마침표, 하이픈. ("오사카/ 간사이"를 "오사카간사이"로 이어 써도 찾는다) */
 const IGNORED_IN_SEARCH = /[\s/()·.\-]/g;
@@ -41,14 +41,22 @@ export function matchesOrigin(city, query) {
   return normalizeForSearch(city).includes(needle);
 }
 
-/** 검색어에 맞는 출발 도시의 편만 (입력 순서 유지). 빈 검색어는 전체. */
-export function filterByQuery(flights, query) {
-  return flights.filter((flight) => matchesOrigin(flight.departureCity, query));
+/**
+ * 검색어가 이 항공편의 출발 도시 또는 항공사 이름에 맞는가. (같은 검색바에서 둘 다 찾는다)
+ * 항공사 이름은 API가 준 값(airline)만 쓰고, 이름 표를 따로 만들지 않는다. 값이 없는 편은 검색어가 있을 때 맞지 않는다.
+ */
+export function matchesFlight(flight, query) {
+  return matchesOrigin(flight.departureCity, query) || matchesOrigin(flight.airline, query);
 }
 
-/** 검색어에 맞는 출발 도시 목록 (값 없는 편 제외, 중복 없이 가나다순) */
+/** 검색어에 맞는 편만 (출발 도시 또는 항공사 이름, 입력 순서 유지). 빈 검색어는 전체. */
+export function filterByQuery(flights, query) {
+  return flights.filter((flight) => matchesFlight(flight, query));
+}
+
+/** 검색어에 맞는 편의 출발 도시 목록 (값 없는 편 제외, 중복 없이 가나다순). 항공사 이름으로 찾으면 그 항공사 편의 도시만 남는다. */
 export function listOriginsMatching(flights, query) {
-  return listOrigins(flights).filter((city) => matchesOrigin(city, query));
+  return listOrigins(filterByQuery(flights, query));
 }
 
 /**

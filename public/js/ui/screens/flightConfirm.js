@@ -57,7 +57,7 @@ export function cardHtml(flight, { now, checked }) {
     </label>`;
 }
 
-const ORIGIN_PLACEHOLDER = '어디에서 오시나요?';
+const ORIGIN_PLACEHOLDER = '도시나 항공사 이름으로 찾기';
 
 /** 칩 하나. 체크 아이콘 없이 선택한 칩의 색만 바뀐다. (라디오라 선택 상태는 화면 읽기 프로그램에 전해진다) */
 function chipHtml(value, label, selected) {
@@ -77,7 +77,7 @@ function originPickerHtml() {
   return `
     <div class="origin-picker">
       <div class="origin-search">
-        <label class="sr-only" for="origin-query">출발 도시 검색</label>
+        <label class="sr-only" for="origin-query">출발 도시·항공사 검색</label>
         ${icon('search', 20)}
         <input id="origin-query" class="field__input origin-search__input" type="search" enterkeyhint="search"
           autocomplete="off" spellcheck="false" placeholder="${ORIGIN_PLACEHOLDER}">
@@ -131,7 +131,7 @@ export function renderFlightConfirm({ main, footer }, ctx) {
     // 고른 항공편이 필터로 가려지면 선택을 풀어, 보이지 않는 항공편으로 계속 진행하지 않게 한다.
     selectedId = visibleSelection(visible, selectedId);
     const empty = visible.length === 0
-      ? `<div class="notice"><p class="notice__text">${icon('info')}<span>"${escapeHtml(query.trim())}"에서 출발하는 항공편을 찾지 못했어요. 다른 도시 이름으로 찾아볼까요?</span></p></div>`
+      ? `<div class="notice"><p class="notice__text">${icon('info')}<span>"${escapeHtml(query.trim())}"에 맞는 항공편을 찾지 못했어요. 다른 도시나 항공사 이름으로 찾아볼까요?</span></p></div>`
       : '';
     list.innerHTML = `
       <legend class="sr-only">항공편 선택</legend>

@@ -95,7 +95,9 @@ h1:focus { outline: none; }
 .form { display: flex; flex-direction: column; gap: var(--space-4); }
 .field { display: flex; flex-direction: column; gap: var(--space-2); }
 
+/* 라벨 글자는 입력창 모서리의 둥근 부분이 끝나는 지점(모서리 반지름만큼 안쪽)에 맞춘다 */
 .field__label {
+  padding-left: var(--radius-input);
   font-size: var(--fs-chip);
   line-height: var(--lh-chip);
   font-weight: 600;
@@ -135,10 +137,15 @@ h1:focus { outline: none; }
   text-transform: uppercase;
 }
 
-.field__input--flight::placeholder {
+/* 안내 문구가 보일 때는 입력 칸 자체를 본문 크기로 바꿔 글자가 칸 한가운데 오게 한다. (24px 줄 안에서 작은 글자가 기준선을 따라 아래로 처지는 것을 막는다) */
+.field__input--flight:placeholder-shown {
   font-size: var(--fs-body);
+  line-height: normal;
   font-weight: 400;
   text-transform: none;
+}
+
+.field__input--flight::placeholder {
   color: var(--color-warm-gray);
 }
 

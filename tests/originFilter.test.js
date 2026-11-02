@@ -82,3 +82,29 @@ test('orderOrigins: 접었을 때는 선택한 도시를 맨 앞으로 (가려�
   assert.notEqual(orderOrigins(origins, null, true), origins); // 새 배열이다 (원본을 바꾸지 않는다)
   assert.deepEqual(origins, ['가고시마', '나고야', '다낭', '라오스']);
 });
+
+// ---------- 항공사 이름 검색 (같은 검색바) ----------
+import { matchesFlight } from '../public/js/domain/originFilter.js';
+
+const g = (flightId, departureCity, airline) => ({ flightId, flightNo: 'KE1', scheduled: 1, departureCity, airline });
+
+test('matchesFlight: 출발 도시 또는 항공사 이름이 맞으면 맞다 (띄어쓰기·대소문자 무시, 부분 일치)', () => {
+  assert.equal(matchesFlight(g('a', '도쿄/나리타', '대한항공'), '대한'), true);
+  assert.equal(matchesFlight(g('a', '도쿄/나리타', '대한항공'), '도쿄'), true);
+  assert.equal(matchesFlight(g('a', '도쿄/나리타', '아시아나 항공'), '아시아나항공'), true);
+  assert.equal(matchesFlight(g('a', '도쿄/나리타', '대한항공'), '아시아나'), false);
+  assert.equal(matchesFlight(g('a', null, null), '대한'), false);
+  assert.equal(matchesFlight(g('a', null, null), '  '), true); // 빈 검색어는 모두 맞는다
+});
+
+test('filterByQuery: 항공사 이름으로도 거르고 입력 순서를 지킨다', () => {
+  const flights = [g('a', '도쿄', '대한항공'), g('b', '방콕', '아시아나항공'), g('c', '파리', '대한항공'), g('d', null, null)];
+  assert.deepEqual(filterByQuery(flights, '대한항공').map((x) => x.flightId), ['a', 'c']);
+  assert.deepEqual(filterByQuery(flights, '아시아나').map((x) => x.flightId), ['b']);
+});
+
+test('listOriginsMatching: 항공사 이름에 맞는 편의 출발 도시만 보인다', () => {
+  const flights = [g('a', '도쿄', '대한항공'), g('b', '방콕', '아시아나항공'), g('c', '파리', '대한항공')];
+  assert.deepEqual(listOriginsMatching(flights, '대한항공'), ['도쿄', '파리']);
+  assert.deepEqual(listOriginsMatching(flights, '방콕'), ['방콕']);
+});
