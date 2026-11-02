@@ -9,6 +9,8 @@ import { renderFlightSearch } from './ui/screens/flightSearch.js';
 import { renderOriginSetup } from './ui/screens/originSetup.js';
 import { renderResult } from './ui/screens/result.js';
 import { initSideBackground } from './ui/components/sideBackground.js';
+import { FADE_EASE, planFadeOut } from './ui/motion/ticketPrintPlan.js';
+import { prefersReducedMotion, ticketAlreadyPrinted } from './ui/motion/ticketPrint.js';
 
 const header = document.querySelector('.app__header');
 const main = document.querySelector('.app__main');
@@ -63,6 +65,29 @@ function playScreenIn(direction) {
   }
 }
 
+let transitionRun = 0;
+
+/**
+ * 결과 화면으로 들어갈 때만, 이전 화면(입력·로딩)이 먼저 페이드 아웃한 뒤 새 화면으로 바꾼다. (티켓 출력 모션의 1단계)
+ * 페이드 아웃 중에 주소가 또 바뀌면 이 전환은 버리고 새 전환이 처리한다. 움직임 줄이기가 켜져 있으면 바로 바꾼다.
+ */
+async function renderWithTransition() {
+  const run = (transitionRun += 1);
+  const fadeMs = currentRoute() === 'result' && !firstRender && previousRoute !== 'result'
+    ? planFadeOut({ reducedMotion: prefersReducedMotion(), hasPrinted: ticketAlreadyPrinted() })
+    : 0;
+  if (fadeMs > 0) {
+    const fades = [main, footer].map((el) => el.animate({ opacity: [1, 0] }, { duration: fadeMs, easing: FADE_EASE, fill: 'forwards' }));
+    await Promise.all(fades.map((a) => a.finished.catch(() => {})));
+    if (run !== transitionRun) {
+      fades.forEach((a) => a.cancel());
+      return;
+    }
+    fades.forEach((a) => a.cancel()); // 같은 작업 안에서 바로 새 화면을 그리므로 깜빡이지 않는다.
+  }
+  render();
+}
+
 function render() {
   const route = currentRoute();
   if (location.hash !== `#/${route}`) history.replaceState(null, '', `#/${route}`);
@@ -98,6 +123,6 @@ function renderMockBadge() {
 }
 
 renderMockBadge();
-window.addEventListener('hashchange', render);
+window.addEventListener('hashchange', renderWithTransition);
 render();
 initSideBackground(); // 양옆 모션 배경 (768px 이상에서만 만든다)

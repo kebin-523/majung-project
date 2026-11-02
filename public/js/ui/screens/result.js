@@ -36,6 +36,7 @@ import { renderChangeBanner } from '../components/changeBanner.js';
 import { renderTimeline } from '../components/routeTimeline.js';
 import { renderCheckedLine, renderRecommendCardContent } from '../components/recommendCard.js';
 import { renderNoticeTicket } from '../components/noticeTicket.js';
+import { playTicketPrint } from '../motion/ticketPrint.js';
 
 // 카드의 "상태 줄": 알려야 하는 경우(지남 · 착륙 · 곧 출발)에만 한 문장을 보여 준다. 평소 상태에는 없다. (사용자 요청)
 // 도착 변경은 카드 위의 변경 안내가, 최신 정보 확인 못 함은 쪽지의 확인 시각 줄이 알리므로 여기서는 다시 말하지 않는다.
@@ -199,8 +200,16 @@ export function renderResult({ main }, ctx) {
   main.innerHTML = `
     <h1 class="sr-only" tabindex="-1">추천 출발 시각</h1>
     <div id="flight-announcer" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></div>
-    <div id="banner-host" class="slot" aria-live="polite"></div>
-    <div id="card-host"></div>
+    <!-- 티켓 출력 모션(ui/motion/ticketPrint.js): 용지(변경 안내 띠 + 카드)가 위쪽 슬롯에서 위에서 아래로 출력된다. 슬롯과 그림자는 장식이다. -->
+    <div id="ticket-stage" class="ticket-stage">
+      <div id="ticket-paper" class="ticket-paper">
+        <div id="banner-host" class="slot" aria-live="polite"></div>
+        <div id="card-host"></div>
+      </div>
+      <span class="ticket-edge" aria-hidden="true"></span>
+      <span class="ticket-slot" aria-hidden="true"></span>
+      <span class="ticket-lip" aria-hidden="true"></span>
+    </div>
     <div id="notice-host" class="slot" aria-live="polite"></div>
     <div id="actions-host" class="slot actions"></div>
     <div class="text-actions">
@@ -513,7 +522,18 @@ export function renderResult({ main }, ctx) {
   });
 
   drawCard();
-  if (polls()) refresh();
+  // 첫 확인이 끝나면 카드 값과 변경 안내 띠가 최신으로 정해진다. 그 전에 출력하면 출력 직후 값이 바뀌거나 띠가 끼어들어 레이아웃이 밀리므로,
+  // 데이터가 늦을 때는 슬롯에서 기다렸다가(상한 있음) 출력을 시작한다.
+  const firstCheck = polls() ? refresh() : Promise.resolve();
+  playTicketPrint({
+    stage: main.querySelector('#ticket-stage'),
+    paper: main.querySelector('#ticket-paper'),
+    slot: main.querySelector('.ticket-slot'),
+    lip: main.querySelector('.ticket-lip'),
+    edge: main.querySelector('.ticket-edge'),
+    afterGroup: [noticeHost, actionsHost, textActions], // 출력이 끝난 뒤 페이드 인
+    ready: firstCheck,
+  });
 
   // 화면을 열어 둔 동안 시간이 흐른 것(곧 출발·지남·오래됨)을 배지에 반영한다.
   // 응답을 받은 지 오래되면 항공편을 자동으로 한 번 다시 확인한다. (실패하면 반복하지 않고 "다시 시도"로 넘긴다)

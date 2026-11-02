@@ -855,12 +855,109 @@ body.sheet-open { overflow: hidden; }
   to { opacity: 1; transform: none; }
 }
 
-/* 추천 출발 시각 카드가 나타날 때: 아래에서 위로 부드럽게 (250ms). 카드 안쪽만 바뀔 때는 바깥 section이 그대로라 다시 재생되지 않는다 */
-.reco { animation: card-rise var(--dur-base) var(--ease); }
+/* 티켓 출력 (DesignGuide 9장, 가정): 결과 카드가 화면 위쪽 슬롯에서 프린터처럼 위에서 아래로 출력된다. js/ui/motion/ticketPrint.js 가 재생한다.
+   시간·속도 값은 js/ui/motion/ticketPrintPlan.js 에 있다. 이전의 "아래에서 올라오는 카드 등장"(card-rise)은 이 모션이 대신한다.
+   애니메이션하는 속성은 clip-path(용지) · transform(종이 끝 그림자) · opacity(슬롯·액션)뿐이라 레이아웃이 바뀌지 않는다.
 
-@keyframes card-rise {
-  from { opacity: 0; transform: translateY(var(--space-3)); }
-  to { opacity: 1; transform: none; }
+   슬롯은 3겹이다. 종이가 슬롯 "안쪽 틈에서 나오는" 것처럼 보이게 한다. (참고 영상의 슬롯 확대 캡처 기준, 값은 추정 시작값)
+     1. .ticket-slot (맨 뒤)  알약 전체: 위쪽 띠 + 가운데 조금 밝은 틈 + 아래쪽 띠
+     2. .ticket-paper         용지. 틈에서 나와 아래쪽 띠 앞을 지나간다. 슬롯보다 좌우로 좁아 슬롯 양끝이 용지 바깥에 보인다
+     3. .ticket-lip (맨 앞)   알약의 위쪽 띠만 잘라낸 층. 용지 윗부분을 덮고, 그 아래에 그림자를 드리운다 */
+.ticket-stage {
+  --slot-height: var(--space-4); /* 알약 전체 두께(24px). ↑ 올리면 슬롯이 두꺼워지고 아래쪽 띠가 길어진다 */
+  --lip-height: 10px; /* 위쪽 띠 두께. ↑ 올리면 윗 띠가 두꺼워지고 틈이 아래로 내려간다 (추정값) */
+  --insert-depth: 8px; /* 용지 윗부분이 윗 띠 안으로 들어가 가려지는 길이. ↑ 올리면 더 깊이 꽂힌 느낌이 난다. 윗 띠 두께를 넘으면 용지가 띠 위로 비치므로 아래 --insert-eff 가 막는다 (추정값) */
+  --insert-eff: min(var(--insert-depth), var(--lip-height));
+  --slot-overhang: 12px; /* 슬롯이 용지보다 좌우로 더 넓은 길이. ↑ 올리면 슬롯 양끝이 더 많이 드러난다 (좌우 여백 20px 안, 추정값) */
+  --gap-height: 5px; /* 가운데 틈 두께. ↑ 올리면 틈이 더 도드라진다 (추정값) */
+  --gap-inset: var(--space-2); /* 틈이 알약 양끝에서 안쪽으로 들어간 길이. ↑ 올리면 틈이 짧아진다 (추정값) */
+  --slot-gap-color: color-mix(in srgb, var(--color-ink) 70%, var(--color-cream)); /* 틈 색: 바깥 어두운 색(Ink)보다 한 톤만 밝게. 크림 비율 ↑ 올리면 틈이 더 밝아진다 (추정값) */
+  --lip-shadow: 0 4px 6px rgba(46, 31, 26, 0.25); /* 윗 띠 아래 그림자. 번짐·농도 ↑ 올리면 슬롯이 무거워진다 (추정 시작값, 색은 Ink) */
+  --edge-height: 10px; /* 종이 끝 그림자 두께. ticketPrintPlan.js 의 EDGE_HEIGHT_PX 와 같다 (가정, 사용자 요청: 약 10px) */
+  position: relative;
+}
+
+/* 용지: 변경 안내 띠 + 카드. 출력 중에만 clip-path 가 걸리고, 끝나면 걷어 낸다. 슬롯(뒤)보다 앞, 윗 띠(앞)보다 뒤다 */
+.ticket-paper {
+  position: relative;
+  z-index: 2;
+  display: block;
+}
+
+.ticket-slot,
+.ticket-lip,
+.ticket-edge { position: absolute; pointer-events: none; opacity: 0; }
+
+/* 1) 슬롯(맨 뒤): Ink(가장 어두운 토큰) 알약. 위쪽 띠는 --lip-height, 그 아래 틈(::before), 나머지는 아래쪽 띠다.
+   용지보다 좌우로 --slot-overhang 만큼 넓다. 위치는 윗 띠의 아래쪽이 용지 윗선보다 --insert-eff 만큼 아래에 오게 맞춘다 */
+.ticket-slot {
+  z-index: 1;
+  left: calc(-1 * var(--slot-overhang));
+  right: calc(-1 * var(--slot-overhang));
+  top: calc(var(--insert-eff) - var(--lip-height));
+  height: var(--slot-height);
+  border-radius: var(--radius-pill);
+  background: var(--color-ink);
+}
+
+/* 가운데 틈: 윗 띠 바로 아래. 양끝에서 안쪽으로 들어간 알약 모양이고, 용지가 나오기 전에는 이 밝은 틈이 보인다 */
+.ticket-slot::before {
+  content: '';
+  position: absolute;
+  top: var(--lip-height);
+  left: var(--gap-inset);
+  right: var(--gap-inset);
+  height: var(--gap-height);
+  border-radius: var(--radius-pill);
+  background: var(--slot-gap-color);
+}
+
+/* 3) 윗 띠(맨 앞): 알약과 같은 바깥 모양에서 위쪽 띠만 잘라낸다(clip-path). 곡선이 같아 이음새가 없다.
+   그림자는 잘린 모양 그대로 drop-shadow 로 드리워져 윗 띠 아래 용지 위에 위에서 아래로 옅어진다 */
+.ticket-lip {
+  z-index: 3;
+  left: calc(-1 * var(--slot-overhang));
+  right: calc(-1 * var(--slot-overhang));
+  top: calc(var(--insert-eff) - var(--lip-height));
+  height: var(--slot-height);
+  filter: drop-shadow(var(--lip-shadow));
+}
+
+.ticket-lip::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: var(--radius-pill);
+  background: var(--color-ink);
+  clip-path: inset(0 0 calc(var(--slot-height) - var(--lip-height)) 0);
+}
+
+/* 용지의 맨 위 요소(띠가 없으면 카드, 있으면 변경 안내)는 슬롯 안에서 나오므로 윗모서리가 평평하다. 아래쪽 모서리는 둥근 채로 둔다.
+   (윗모서리가 둥글면 윗 띠 아래로 크림색 빈틈이 보여 슬롯과 용지가 따로 떠 보인다)
+   슬롯이 사라지는 설정(KEEP_SLOT_VISIBLE = false)에서는 사라진 뒤 .slot-gone 이 붙어 둥근 윗모서리로 돌아온다 */
+.ticket-stage:not(.slot-gone) .ticket-paper > .slot:empty + #card-host > :first-child,
+.ticket-stage:not(.slot-gone) .ticket-paper > .slot:not(:empty) > :first-child {
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
+}
+
+.ticket-stage:not(.slot-gone) .ticket-paper > .slot:empty + #card-host > :first-child .ticket__band { border-radius: 0; }
+
+/* 종이 끝 그림자: 드러나는 아래쪽 끝에서 아래로 번지는 10px 그라데이션. 처음 값(8px, 농도 0.08)은 거의 보이지 않아 끝쪽을 조금 진하게 하고(0.14) 여러 단계로 부드럽게 줄였다.
+   용지 바깥 요소라 clip-path 에 잘리지 않는다. 색은 가이드의 떠 있는 카드 그림자(Ink)와 같다. will-change 는 출력 중에만 JS 가 켠다 */
+.ticket-edge {
+  z-index: 2;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: var(--edge-height);
+  background: linear-gradient(
+    to bottom,
+    rgba(46, 31, 26, 0.14) 0%,
+    rgba(46, 31, 26, 0.08) 30%,
+    rgba(46, 31, 26, 0.03) 65%,
+    rgba(46, 31, 26, 0) 100%
+  );
 }
 
 /* 도착 정보가 바뀌어 다시 계산될 때: 시각 숫자 교체 (400ms) */
