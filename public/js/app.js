@@ -1,6 +1,9 @@
 // 진입점: 해시 라우팅(#/flight, #/confirm, #/origin, #/result)과 화면 교체.
 import { load } from './store.js';
-import { getScenario, mockNow, todayKst } from './mock/scenarios.js';
+import { ADDRESS_ROUTE_IS_MOCK } from './config.js';
+import { mockBadgeText } from './domain/mockBadge.js';
+import { clockNow, clockToday, isScenarioMode } from './clock.js';
+import { getScenario } from './mock/scenarios.js';
 import { renderFlightConfirm } from './ui/screens/flightConfirm.js';
 import { renderFlightSearch } from './ui/screens/flightSearch.js';
 import { renderOriginSetup } from './ui/screens/originSetup.js';
@@ -10,10 +13,11 @@ const header = document.querySelector('.app__header');
 const main = document.querySelector('.app__main');
 const footer = document.querySelector('.app__footer');
 
-// 화면이 쓰는 공용 도구. 시계(now·today)는 목업용이라, 실제 API를 연결할 때 여기서 실제 시각으로 바꾼다.
+// 화면이 쓰는 공용 도구. 시계(now·today)는 clock.js 가 모드에 맞게 고른다:
+// 시나리오 모드(?scenario=)는 데모 시계, 실제 모드는 실제 시각.
 const ctx = {
-  now: () => mockNow(),
-  today: () => todayKst(),
+  now: () => clockNow(),
+  today: () => clockToday(),
   navigate: (name) => {
     location.hash = `#/${name}`;
   },
@@ -78,10 +82,18 @@ function render() {
   firstRender = false;
 }
 
+// 상단 표시 (DesignGuide 7장 "구현 중 추가한 문구"의 "상단 표시"). 문구는 domain/mockBadge.js 가 정한다.
+//   시나리오 모드(전부 목업): "목업 데이터" (시나리오 이름이 normal 이 아니면 이름을 덧붙인다)
+//   실제 모드에서 항공편·장소·이동 시간이 모두 실제: 표시 없음
 function renderMockBadge() {
-  const scenario = getScenario();
   const badge = header.querySelector('.mock-badge');
-  badge.textContent = scenario === 'normal' ? '목업 데이터' : `목업 · ${scenario}`;
+  const text = mockBadgeText({
+    scenarioMode: isScenarioMode(),
+    scenario: getScenario(),
+    addressRouteIsMock: ADDRESS_ROUTE_IS_MOCK,
+  });
+  badge.textContent = text ?? '';
+  badge.hidden = text === null;
 }
 
 renderMockBadge();

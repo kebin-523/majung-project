@@ -8,12 +8,18 @@
 //   routefail 이동 시간 조회 실패 (출발지 단계에서 막힌다)
 //   passed    추천 출발 시각이 이미 지난 상태
 //   recheckfail 추천 출발 시각이 지난 상태에서 "이동 시간 다시 확인"만 실패 (처음 조회는 성공)
-//   landed    이미 도착한 항공편
+//   landed    이미 도착한 항공편 (status: arrived)
+//   touchdown 착륙한 항공편 (추천 카드는 유지하고 말풍선만 바뀐다)
+//   unknown   알 수 없는 운항 상태 (결항·회항 포함, 추천 시각을 계산하지 않는다)
+//   later-touchdown / later-arrived / later-unknown
+//             화면을 열어 둔 사이 상태가 바뀐다. 처음 두 번의 확인(검색·화면을 열 때)은 상태 없음이고, 두 번째 재확인부터 착륙 / 도착 / 알 수 없는 상태가 된다.
+//             "잠시 뒤"를 보려고 데모 시계가 11배 빨리 흐른다. (SCENARIO_SPEED) 그래서 1분 뒤 첫 상태 점검에서 응답을 받은 지 10분이 지난 것으로 보여 자동 재확인이 일어난다.
 //
-// 실제 API를 연결하면 이 파일과 js/mock/* 은 쓰이지 않는다.
+// 이 시나리오가 주소창에 있으면 "시나리오 모드"다. 항공편도 목업을 쓰고 데모 시계를 쓴다. (clock.js 참고)
+// 실제 모드(?scenario= 가 없을 때)에서는 항공편·장소·이동 시간 모두 이 시나리오를 쓰지 않고 서버 함수로 조회한 실제 값을 쓴다.
 import { partsKst, toMs } from '../domain/time.js';
 
-export const SCENARIOS = ['normal', 'changed', 'stale', 'fail', 'notfound', 'routefail', 'passed', 'recheckfail', 'landed'];
+export const SCENARIOS = ['normal', 'changed', 'stale', 'fail', 'notfound', 'routefail', 'passed', 'recheckfail', 'landed', 'touchdown', 'unknown', 'later-touchdown', 'later-arrived', 'later-unknown'];
 
 export const MOCK_LATENCY_MS = 300; // 실제 API처럼 응답에 시간이 걸리는 느낌
 
@@ -21,6 +27,8 @@ export const MOCK_LATENCY_MS = 300; // 실제 API처럼 응답에 시간이 걸�
 // 실제 시각을 쓰면 밤에 열 때마다 "출발 시각 지남"이 나오므로 목업에서만 이렇게 고정한다.
 const DEFAULT_CLOCK = '14:00';
 const SCENARIO_CLOCK = { passed: '16:00', recheckfail: '16:00' };
+// 데모 시계가 흐르는 속도. 기본은 실제와 같다(1배). later-* 는 11배라 실제 1분이 데모 11분이다. (오래됨 기준 10분을 1분 상태 점검 틱에 넘긴다)
+export const SCENARIO_SPEED = { 'later-touchdown': 11, 'later-arrived': 11, 'later-unknown': 11 };
 const loadedAt = Date.now();
 
 /** 주소창(search)에서 시나리오를 읽는다. 알 수 없는 값은 normal. */
@@ -40,7 +48,7 @@ export function todayKst() {
 /** 목업 화면이 "지금"으로 써야 하는 시각(epoch ms) */
 export function mockNow(scenario = getScenario()) {
   const clock = SCENARIO_CLOCK[scenario] ?? DEFAULT_CLOCK;
-  return toMs(`${todayKst()} ${clock}`) + (Date.now() - loadedAt);
+  return toMs(`${todayKst()} ${clock}`) + (Date.now() - loadedAt) * (SCENARIO_SPEED[scenario] ?? 1);
 }
 
 export const wait = (ms = MOCK_LATENCY_MS) => new Promise((resolve) => setTimeout(resolve, ms));

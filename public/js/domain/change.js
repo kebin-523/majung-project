@@ -63,3 +63,15 @@ export function changeId(flightId, fromMs, toMs) {
 export function shouldAnnounce(change, lastAnnouncedId) {
   return change !== null && change.id !== lastAnnouncedId;
 }
+
+/**
+ * 이동 시간을 다시 조회한 것이 "실제 재조회"로 안내해도 되는 값인가.
+ * 이동 시간 어댑터가 목업(source 'mock')이고 항공편이 실제 값인 모드에서는 재조회한 값이 가짜라서
+ * "이동 시간도 다시 확인했어요"를 쓰지 않는다. 시나리오 모드(전부 목업, 상단에 목업으로 표시)에서는 변경 안내 시연을 위해 그대로 쓴다.
+ *
+ * @param {{ source?: string }} drive  다시 조회한 이동 시간 결과의 data
+ * @param {{ scenarioMode: boolean }} options
+ */
+export function isRealTravelRecheck(drive, { scenarioMode }) {
+  return Boolean(drive) && !(drive.source === 'mock' && !scenarioMode);
+}

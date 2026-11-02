@@ -13,9 +13,15 @@ export const BUFFER_MAX_MIN = 120;
 export const ADDRESS_SEARCH_DEBOUNCE_MS = 400;
 export const ADDRESS_MIN_QUERY_LENGTH = 2;
 
+// 주소 검색·이동 시간이 아직 목업인가. 상단 표시에만 쓴다. (모드는 clock.js, 문구는 domain/mockBadge.js)
+// 주소 검색(카카오 로컬)과 이동 시간(카카오모빌리티 길찾기)을 실제로 연결해 브라우저에서 확인했으므로 false 다. (2026-10-31, README "검증 현황")
+// 그래서 실제 모드(?scenario= 가 없을 때)의 상단 표시는 없고, 시나리오 모드는 "목업 데이터" 그대로다.
+export const ADDRESS_ROUTE_IS_MOCK = false;
+
 // 상태 판단 기준 (가정, 갱신 주기 확정 후 조정)
 export const SOON_THRESHOLD_MIN = 60; // 추천 출발 60분 전부터 "곧 출발"
-// 마지막 확인 후 10분이 지나면 "오래됨". 화면을 연 채 이 시간이 지나면 자동으로 한 번 다시 확인하는 간격으로도 쓴다.
+// 화면이 항공편 응답을 받은 지 10분이 지나면 "오래됨". (기기 시계로 잰 경과 시간이다. domain/status.js 의 lastConfirmedAt)
+// 화면을 연 채 이 시간이 지나면 자동으로 한 번 다시 확인하는 간격으로도 쓴다.
 // 자동 확인은 항공편 조회 API를 호출하므로 호출 한도를 확인한 뒤 조정한다.
 export const STALE_AFTER_MIN = 10;
 
@@ -40,3 +46,7 @@ export const BADGE_PRIORITY = ['passed', 'stale', 'changed', 'soon', 'relaxed'];
 //   시간대별 비율: 0~1시간 53% · 1~2시간 23% · 2~4시간 29% · 4~8시간 35% · 8시간 이상 10%.
 export const EARLY_NOTICE_MIN = 10;
 export const LATE_NOTICE_MIN = 15;
+
+// 시간대로 찾기: 한 번에 볼 수 있는 도착 시간대의 최대 폭(시간). (가정, 인천공항 API 한 번 호출로 numOfRows 500행을 넘기지 않게 잡은 값)
+// 서버의 MAX_WINDOW_MIN(server/icn/handleFlights.js)과 같은 뜻이다. 서버는 public/ 을 불러오지 않아 값을 따로 둔다. 바꿀 때는 둘 다 고친다.
+export const WINDOW_MAX_HOURS = 3;

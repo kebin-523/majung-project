@@ -16,5 +16,9 @@ export const MOCK_DRIVE = {
   'p-songdo': { minutes: 35, distanceKm: 30 },
 };
 
+// 위 목록에 없는 장소(실제 모드에서 카카오 검색으로 고른 장소)에 쓰는 고정 예시 이동 시간. 실제 길찾기 값이 아니다.
+// 60분 · 55km 는 위 목업 5곳(35~80분, 30~78km)의 중앙값이다. 장소와 상관없이 같은 값이라 실제와 많이 다를 수 있다.
+export const EXAMPLE_DRIVE = { minutes: 60, distanceKm: 55 };
+
 // 'changed' 시나리오에서 이동 시간을 다시 조회했을 때 달라지는 값(분)
 export const MOCK_DRIVE_REFRESH_DELTA_MIN = 5;

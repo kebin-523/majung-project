@@ -1,5 +1,6 @@
 // 상태 배지 결정. 여러 상태가 겹치면 config.js의 BADGE_PRIORITY 순서로 하나만 고른다.
 import { BADGE_PRIORITY, SOON_THRESHOLD_MIN, STALE_AFTER_MIN } from '../config.js';
+import { terminalCodeOf } from './terminal.js';
 import { minutes, toMs } from './time.js';
 
 /**
@@ -47,4 +48,46 @@ export function resolveBadge({ now, departure, lastChecked, hasUnseenChange = fa
   };
 
   return BADGE_PRIORITY.find((key) => active[key]);
+}
+
+/**
+ * 추천 카드 대신 안내 상자를 보여 줘야 하는 항공편인가. (DOM 접근 없음)
+ *  - 'arrived': 이미 도착한 편 (status 'arrived'). 착륙('touchdown')은 해당하지 않고 추천 카드를 유지한다.
+ *  - 'unknown': 운항 상태를 알아보지 못한 편 (결항·회항 포함). 추천 출발 시각을 계산하지 않는다.
+ *  - null: 추천 카드를 그린다.
+ * @param {{ status?: string, landed?: boolean }} flight
+ * @returns {'arrived'|'unknown'|null}
+ */
+export function flightNoticeKind({ status, landed } = {}) {
+  if (landed === true || status === 'arrived') return 'arrived';
+  if (status === 'unknown') return 'unknown';
+  return null;
+}
+
+/**
+ * 항공편의 최신 상태에 맞는 화면을 결정한다. 재확인 결과가 올 때마다 이 함수로 다시 정하므로, 상태가 되돌아와도 최신 상태를 따라간다. (DOM 접근 없음)
+ *  - screen 'card'    추천 카드. 착륙(touchdown)이면 touchdown 이 true 이고 말풍선만 바뀐다.
+ *  - screen 'arrived' 도착 안내 상자. 추천 시각을 계산·표시하지 않는다.
+ *  - screen 'unknown' 운항 상태 확인 필요 안내 상자. 추천 시각을 계산·표시하지 않는다.
+ *  - screen 'terminal' 도착 터미널을 몰라(없거나 P02) 이동 시간을 계산하지 못하는 안내 상자. options.requiresTerminal 일 때만 나온다.
+ *    도착·운항 상태 확인 필요 안내가 먼저이고(그 편들은 이동 시간이 필요 없다), 시나리오 모드(목업 항공편에는 터미널이 없다)는 requiresTerminal 을 켜지 않는다.
+ * @param {{ status?: string, landed?: boolean, terminal?: { code?: string } | null }} flight
+ * @param {{ requiresTerminal?: boolean }} [options]
+ * @returns {{ screen: 'card'|'arrived'|'unknown'|'terminal', touchdown: boolean }}
+ */
+export function resolveFlightView(flight, { requiresTerminal = false } = {}) {
+  const notice = flightNoticeKind(flight);
+  if (notice) return { screen: notice, touchdown: false };
+  if (requiresTerminal && terminalCodeOf(flight) === null) return { screen: 'terminal', touchdown: false };
+  return { screen: 'card', touchdown: flight?.status === 'touchdown' };
+}
+
+/**
+ * "오래됨"과 자동 재확인을 판단하는 기준 시각: 화면이 항공편 응답을 받은 시각(receivedAt)이다.
+ * 서버가 인천공항 API 를 부른 시각(fetchedAt)은 서버 시계라서 기기 시계와 어긋날 수 있으므로 "N:NN에 확인했어요" 표시에만 쓴다.
+ * receivedAt 이 없는 예전 저장값만 fetchedAt 으로 대신한다.
+ * @param {{ receivedAt?: number|null, fetchedAt?: number|null }} flight
+ */
+export function lastConfirmedAt(flight) {
+  return flight?.receivedAt ?? flight?.fetchedAt ?? null;
 }

@@ -1,5 +1,5 @@
 // 인천공항 여객기 운항 현황(도착) 응답을 어댑터가 쓰는 항공편 모양으로 바꾼다. 네트워크·환경변수·현재 시각을 직접 쓰지 않는 순수 함수다.
-// (현재 시각은 fetchedAt 으로 받는다.) 실제 어댑터는 DesignGuide를 정할 때까지 화면에 연결하지 않는다.
+// (현재 시각은 fetchedAt 으로 받는다.) 서버 함수(netlify/functions/flights.mjs → server/icn/handleFlights.js)가 이 변환을 쓰고, 화면 어댑터가 그 결과를 받는다.
 //
 // 지연 기준·변경 시각의 의미는 공식 활용가이드에 없다. 아래는 2026-10-30 관찰이다.
 // - remark "지연"은 착륙 전 편 중 변경−예정이 16분 이상인 편에만 붙었다.
@@ -26,7 +26,7 @@
 //   airline              항공사(없으면 null)
 //   codeshare            "Master" | "Slave" 등 원문(없으면 null), masterFlightNo  Slave 일 때 마스터 편명(없으면 null)
 //   fetchedAt, source    조회 시각(ms), 'icn'
-// landed 는 만들지 않는다. 착륙·도착을 "이미 도착"으로 볼지는 DesignGuide를 정한 뒤에 정한다.
+// landed 는 여기서 만들지 않는다. 화면 어댑터(flightAdapter.js)가 status 로 정한다: 'arrived' 만 true, 'touchdown' 은 false. (임시 결정)
 import { classifyErrorText, classifyHttpStatus, classifyResultCode } from './classifyError.js';
 import { parseKstDateTime, toKstDateString } from './kst.js';
 
@@ -114,8 +114,8 @@ function checkOptions(options) {
   if (typeof fetchedAt !== 'number' || !Number.isFinite(fetchedAt)) {
     throw new TypeError('fetchedAt(조회 시각, epoch ms)이 필요해요.');
   }
-  if (mode !== 'search' && mode !== 'refresh') {
-    throw new TypeError(`mode 는 'search' 또는 'refresh' 여야 해요: ${String(mode)}`);
+  if (mode !== 'search' && mode !== 'refresh' && mode !== 'window') {
+    throw new TypeError(`mode 는 'search', 'refresh', 'window' 중 하나여야 해요: ${String(mode)}`);
   }
   if (mode === 'refresh' && !isNonEmptyString(fid)) {
     throw new TypeError("mode 'refresh' 에는 fid 가 필요해요.");
@@ -128,7 +128,8 @@ function checkOptions(options) {
  *
  * @param {object} body
  * @param {object} options
- * @param {'search'|'refresh'} [options.mode='search']  search: 처음 검색(여러 행), refresh: 등록한 편의 재확인(f_id + searchday 조회, 한 건)
+ * @param {'search'|'refresh'|'window'} [options.mode='search']  search: 처음 검색(여러 행), refresh: 등록한 편의 재확인(f_id + searchday 조회, 한 건),
+ *   window: 편명을 모를 때 도착 시간대로 찾기(여러 행, 처리는 search 와 같다)
  * @param {string} [options.fid]                        refresh 에서 찾을 fid
  * @param {number} options.fetchedAt                    조회 시각(ms)
  * @returns {{ ok: true, data: object[], skippedRows: number, truncated: boolean }

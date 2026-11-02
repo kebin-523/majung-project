@@ -1,0 +1,7 @@
+# Netlify 설정. 화면은 public/ 을, 함수는 netlify/functions/ 를 배포한다.
+# 함수가 netlify/functions 밖의 server/icn/ 을 불러오는데, 이 폴더가 함수에 묶여 들어가는지는 배포해서 확인해야 한다. (확인 못 함)
+[build]
+  publish = "public"
+
+[functions]
+  directory = "netlify/functions"

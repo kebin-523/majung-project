@@ -28,12 +28,26 @@ function buildFlights() {
     { flightNo: 'OZ541', arrivalDate: today, scheduled: at(today, '23:50'), changedTo: at(tomorrow, '00:20'), departureCity: '방콕' },
     // 구분 정보가 전혀 없는 경우
     { flightNo: 'LJ202', arrivalDate: today, scheduled: at(today, '19:05'), changedTo: at(today, '19:25') },
+    // 시간대로 찾기(출발 도시 필터)를 눌러 볼 수 있게 17시대에 서로 다른 도시의 편을 둔다.
+    { flightNo: 'TG659', arrivalDate: today, scheduled: at(today, '17:40'), changedTo: at(today, '17:55'), departureCity: '방콕', airline: '타이항공' },
+    { flightNo: 'JL950', arrivalDate: today, scheduled: at(today, '17:55'), changedTo: at(today, '18:10'), departureCity: '도쿄', airline: '일본항공' },
   ].map((flight) => ({ ...flight, flightId: `${flight.flightNo}@${flight.arrivalDate}` }));
 }
 
 /** 편명(정규화된 값)과 도착 날짜("YYYY-MM-DD")로 찾는다. */
 export function findFlights(flightNo, arrivalDate) {
   return buildFlights().filter((f) => f.flightNo === flightNo && f.arrivalDate === arrivalDate);
+}
+
+/** 도착 날짜("YYYY-MM-DD")와 시간대("HHMM"~"HHMM", 종료 2400 은 하루 끝까지)에 예정 시각이 드는 목업. [from, to) 이다. */
+// 목업은 예정 시각 기준이다. (처음 조회한 목업은 변경 전이라 예정 = 변경이다. 실제 API가 예정·변경 중 무엇에 거는지는 확인 못 함)
+export function findFlightsInWindow(arrivalDate, from, to) {
+  const toMinutes = (hhmm) => Number(hhmm.slice(0, 2)) * 60 + Number(hhmm.slice(2));
+  return buildFlights().filter((f) => {
+    const { h, mi } = partsKst(f.scheduled);
+    const minute = h * 60 + mi;
+    return f.arrivalDate === arrivalDate && minute >= toMinutes(from) && minute < toMinutes(to);
+  });
 }
 
 export function findFlight(flightId) {
