@@ -3,9 +3,10 @@ import { searchFlights, searchFlightsByWindow } from '../../adapters/flightAdapt
 import { WINDOW_MAX_HOURS } from '../../config.js';
 import { parseFlightNo } from '../../domain/flightNo.js';
 import { dateRange, isSelectable } from '../../domain/calendar.js';
-import { clampToHour, defaultWindow, readSavedWindow, toHhmm } from '../../domain/timeWindow.js';
+import { clampToHour, defaultWindow, fromHourOptions, readSavedWindow, toHhmm, toHourOptions } from '../../domain/timeWindow.js';
 import { load, save } from '../../store.js';
 import { createDatePicker } from '../components/datePicker.js';
+import { createHourPicker } from '../components/hourPicker.js';
 import { icon } from '../components/icon.js';
 import { renderProgress } from '../components/progress.js';
 
@@ -22,8 +23,6 @@ const MODES = [
   { value: 'flightNo', label: '편명으로 찾기' },
   { value: 'window', label: '시간대로 찾기' },
 ];
-const pad2 = (n) => String(n).padStart(2, '0');
-const hourOption = (hour, selected) => `<option value="${hour}"${hour === selected ? ' selected' : ''}>${pad2(hour)}:00</option>`;
 
 export function renderFlightSearch({ main, footer }, ctx) {
   const today = ctx.today();
@@ -59,12 +58,12 @@ export function renderFlightSearch({ main, footer }, ctx) {
       </div>
       <div id="window-fields" class="field-row" hidden>
         <div class="field">
-          <label class="field__label" for="window-from">몇 시부터</label>
-          <select id="window-from" class="field__input tabular"></select>
+          <span id="window-from-label" class="field__label">몇 시부터</span>
+          <div id="window-from" class="hour-picker"></div>
         </div>
         <div class="field">
-          <label class="field__label" for="window-to">몇 시까지</label>
-          <select id="window-to" class="field__input tabular"></select>
+          <span id="window-to-label" class="field__label">몇 시까지</span>
+          <div id="window-to" class="hour-picker"></div>
         </div>
       </div>
       <div id="search-notice" aria-live="polite"></div>
@@ -79,8 +78,6 @@ export function renderFlightSearch({ main, footer }, ctx) {
   const submitBtn = footer.querySelector('#submit-btn');
   const flightField = main.querySelector('#flight-field');
   const windowFields = main.querySelector('#window-fields');
-  const fromSelect = main.querySelector('#window-from');
-  const toSelect = main.querySelector('#window-to');
 
   flightInput.value = saved?.flightNo ?? '';
   const datePicker = createDatePicker({
@@ -99,16 +96,35 @@ export function renderFlightSearch({ main, footer }, ctx) {
   let windowHours = savedWindow ?? defaultWindow(ctx.now(), initialDate, today);
   let windowTouched = savedWindow !== null;
 
-  function renderToOptions() {
-    const max = Math.min(windowHours.fromHour + WINDOW_MAX_HOURS, 24);
-    const hours = [];
-    for (let hour = windowHours.fromHour + 1; hour <= max; hour += 1) hours.push(hour);
-    toSelect.innerHTML = hours.map((hour) => hourOption(hour, windowHours.toHour)).join('');
-  }
+  const fromPicker = createHourPicker({
+    root: main.querySelector('#window-from'),
+    labelId: 'window-from-label',
+    title: '몇 시부터 고르기',
+    options: fromHourOptions(),
+    value: windowHours.fromHour,
+    onChange(fromHour) {
+      windowTouched = true;
+      windowHours = { fromHour, toHour: clampToHour(fromHour, windowHours.toHour) };
+      toPicker.setOptions(toHourOptions(fromHour), windowHours.toHour);
+      showNotice(null);
+    },
+  });
+  const toPicker = createHourPicker({
+    root: main.querySelector('#window-to'),
+    labelId: 'window-to-label',
+    title: '몇 시까지 고르기',
+    options: toHourOptions(windowHours.fromHour),
+    value: windowHours.toHour,
+    onChange(toHour) {
+      windowTouched = true;
+      windowHours = { ...windowHours, toHour };
+      showNotice(null);
+    },
+  });
 
   function renderWindow() {
-    fromSelect.innerHTML = Array.from({ length: 24 }, (_, hour) => hourOption(hour, windowHours.fromHour)).join('');
-    renderToOptions();
+    fromPicker.setValue(windowHours.fromHour);
+    toPicker.setOptions(toHourOptions(windowHours.fromHour), windowHours.toHour);
   }
 
   function applyMode() {
@@ -117,7 +133,6 @@ export function renderFlightSearch({ main, footer }, ctx) {
     windowFields.hidden = mode !== 'window';
   }
 
-  renderWindow();
   applyMode();
 
   function showFieldError(text) {
@@ -214,20 +229,6 @@ export function renderFlightSearch({ main, footer }, ctx) {
     mode = event.target.value;
     applyMode();
     showFieldError(null);
-    showNotice(null);
-  });
-
-  fromSelect.addEventListener('change', () => {
-    windowTouched = true;
-    const fromHour = Number(fromSelect.value);
-    windowHours = { fromHour, toHour: clampToHour(fromHour, windowHours.toHour) };
-    renderToOptions();
-    showNotice(null);
-  });
-
-  toSelect.addEventListener('change', () => {
-    windowTouched = true;
-    windowHours = { ...windowHours, toHour: Number(toSelect.value) };
     showNotice(null);
   });
 
