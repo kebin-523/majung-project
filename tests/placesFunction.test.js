@@ -245,6 +245,17 @@ test('로그에는 검색어·주소가 없고 reason, 상태 코드, 건수만 
   assert.ok(logged.some((line) => line.includes('count=0')));
 });
 
+test('키·권한 오류 로그에 errorType·키 지문이 남고 키 원문·메시지(검색어)는 남지 않는다', async () => {
+  const message = `cannot access ${QUERY} 서울 가상구`;
+  await run(withQuery(QUERY), { status: 403, text: JSON.stringify({ errorType: 'AccessDeniedError', message }) });
+  const log = logged.at(-1);
+  assert.match(log, /config status=403 errorType=AccessDeniedError code=none keyLen=24 keySha=[0-9a-f]{8}/);
+  assert.ok(!log.includes(KEY) && !log.includes(QUERY) && !log.includes('서울 가상구'));
+  await run(withQuery(QUERY), { status: 401, text: JSON.stringify({ code: -401, msg: QUERY }) });
+  assert.match(logged.at(-1), /errorType=none code=-401/);
+  assert.ok(!logged.at(-1).includes(QUERY));
+});
+
 test('다음 페이지를 자동으로 부르지 않는다: 15건이 꽉 차도 호출은 한 번', async () => {
   const documents = Array.from({ length: 15 }, (_, i) => doc({ id: String(2000 + i) }));
   const { response, calls } = await run(withQuery(QUERY), { text: kakaoBody(documents) });

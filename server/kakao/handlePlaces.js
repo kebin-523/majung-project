@@ -14,6 +14,7 @@
 // - 모든 응답에 Cache-Control: no-store 를 붙인다. 검색어가 사용자 입력(주소)이라 CDN·브라우저에 남기지 않는다.
 //
 // 로그에는 reason, 상태 코드, 받은 건수만 남긴다. 검색어·주소·키·오류 메시지는 남기지 않는다.
+import { kakaoFailureInfo } from './diagnose.js';
 import { classifyHttpStatus, classifyThrown, isValidationError } from './classifyError.js';
 import { buildKeywordUrl, normalizePlaces } from './normalizePlaces.js';
 
@@ -99,7 +100,7 @@ export async function handlePlaces(request, { apiKey, fetch: fetchImpl, timeoutM
 
   const httpReason = classifyHttpStatus(status);
   if (httpReason !== null) {
-    console.error(`[places] ${httpReason} status=${status}`);
+    console.error(`[places] ${httpReason} status=${status} ${kakaoFailureInfo(text, key)}`);
     return failure(httpReason);
   }
 

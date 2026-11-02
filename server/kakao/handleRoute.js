@@ -16,6 +16,7 @@
 // - 모든 응답에 Cache-Control: no-store 를 붙인다. 출발지 좌표는 위치 정보라 CDN·브라우저에 남기지 않는다.
 //
 // 로그에는 reason, 상태 코드, 분(minutes)만 남긴다. 좌표·장소 이름·터미널 코드·키·오류 메시지는 남기지 않는다.
+import { kakaoFailureInfo } from './diagnose.js';
 import { classifyRouteHttpStatus, classifyThrown } from './classifyRouteError.js';
 import { getDestination } from './destinations.js';
 import { normalizeRoute } from './normalizeRoute.js';
@@ -101,7 +102,7 @@ export async function handleRoute(request, { apiKey, fetch: fetchImpl, timeoutMs
 
   const httpReason = classifyRouteHttpStatus(status);
   if (httpReason !== null) {
-    console.error(`[route] ${httpReason} status=${status}`);
+    console.error(`[route] ${httpReason} status=${status} ${kakaoFailureInfo(text, key)}`);
     return failure(httpReason);
   }
 
