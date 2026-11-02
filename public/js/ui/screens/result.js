@@ -36,7 +36,7 @@ import { closeCurrentSheet, openBufferSheet } from '../components/bottomSheet.js
 import { renderChangeBanner } from '../components/changeBanner.js';
 import { renderTimeline } from '../components/routeTimeline.js';
 import { renderCheckedLine, renderNowRow, renderRecommendCardContent } from '../components/recommendCard.js';
-import { icon } from '../components/icon.js';
+import { renderNoticeTicket } from '../components/noticeTicket.js';
 
 // 카드의 "상태 줄": 알려야 하는 경우(지남 · 착륙 · 곧 출발)에만 한 문장을 보여 준다. 평소 상태에는 없다. (사용자 요청)
 // 도착 변경은 카드 위의 변경 안내가, 최신 정보 확인 못 함은 쪽지의 확인 시각 줄이 알리므로 여기서는 다시 말하지 않는다.
@@ -55,13 +55,7 @@ function statusKindOf(badgeKey, touchdown) {
 }
 
 const MESSAGES = {
-  arrived: '이 항공편은 이미 도착했어요. 입국 절차를 마친 뒤에 만날 수 있어요. 다른 항공편을 찾아볼까요?',
-  unknown: '이 항공편의 운항 상태를 확인해 주세요. 확인이 필요한 표시가 있어서 추천 출발 시각은 계산하지 않았어요. 항공사에 먼저 확인해 보세요.',
-  terminal: TERMINAL_HOLD_MESSAGE,
-  noTravel: '이동 시간을 불러오지 못해서 추천 시각을 계산하지 못했어요.',
-  refreshFailed: '지금은 항공편 정보를 가져오지 못했어요. 잠시 후 다시 시도해 주세요.',
   travelChecking: '이동 시간을 확인하고 있어요.',
-  travelRecheckFailed: '이동 시간을 다시 확인하지 못했어요. 잠시 후 다시 시도해 주세요.',
 };
 
 /**
@@ -143,18 +137,27 @@ export function buildResultViewModel({ flight, drive, buffers, now, hasChange = 
   };
 }
 
-const noticeHtml = (text) => `<div class="notice"><p class="notice__text">${icon('info')}<span>${text}</span></p></div>`;
+// 안내 티켓 문구: 핵심 문장(무슨 일인가)과 보조 문장(어떻게 하면 되나)으로 나눠 쓴다. (DesignGuide 7장 "상태별 화면 처리")
+const NOTICE_COPY = {
+  arrived: { lead: '이 항공편은 이미 도착했어요.', detail: '입국 절차를 마친 뒤에 만날 수 있어요. 다른 항공편을 찾아볼까요?' },
+  unknown: { lead: '이 항공편의 운항 상태를 확인해 주세요.', detail: '확인이 필요한 표시가 있어서 추천 출발 시각은 계산하지 않았어요. 항공사에 먼저 확인해 보세요.' },
+  terminal: { lead: TERMINAL_HOLD_MESSAGE },
+  noTravel: { lead: '이동 시간을 불러오지 못해서 추천 시각을 계산하지 못했어요.' },
+  refreshFailed: { lead: '지금은 항공편 정보를 가져오지 못했어요.' },
+  travelRecheckFailed: { lead: '이동 시간을 다시 확인하지 못했어요.' },
+};
+const RETRY_LATER = '잠시 후 다시 시도해 주세요.';
 
-/** 도착·운항 상태 확인 필요·도착 터미널 확인 못 함 안내 상자. 상자 안에 "항공편 바꾸기" Text 버튼이 있다. 도착한 편은 원래 예정만 "도착 예정 11:00"으로 보여 준다. */
+/** 다시 시도하면 되는 실패 안내. 실패가 여럿이어도 보조 문장("잠시 후 다시 시도해 주세요.")은 한 번만 쓴다. */
+const failureNoticeHtml = (leads) => renderNoticeTicket({ lead: leads, detail: RETRY_LATER });
+
+/** 도착·운항 상태 확인 필요·도착 터미널 확인 못 함 안내 티켓. 쪽지에 "항공편 바꾸기" Text 버튼이 있다. 도착한 편은 원래 예정만 "도착 예정 11:00"으로 보여 준다. */
 function flightNoticeHtml(kind, flight) {
-  const scheduled = kind === 'arrived'
-    ? `<p class="caption tabular"><span aria-hidden="true">도착 예정 ${formatClock(flight.scheduled)}</span><span class="sr-only">도착 예정 ${formatSpoken(flight.scheduled)}</span></p>`
-    : '';
-  return `<div class="notice">
-      <p class="notice__text">${icon('info')}<span>${MESSAGES[kind]}</span></p>
-      ${scheduled}
-      <button class="btn btn--text" type="button" data-action="change-flight">항공편 바꾸기</button>
-    </div>`;
+  return renderNoticeTicket({
+    ...NOTICE_COPY[kind],
+    facts: kind === 'arrived' ? [{ label: '도착 예정', value: formatClock(flight.scheduled), spoken: formatSpoken(flight.scheduled) }] : [],
+    action: { label: '항공편 바꾸기', attr: 'data-action="change-flight"' },
+  });
 }
 
 export function renderResult({ main }, ctx) {
@@ -274,7 +277,7 @@ export function renderResult({ main }, ctx) {
       return;
     }
     if (!Number.isFinite(drive?.minutes)) {
-      host.innerHTML = noticeHtml(MESSAGES.noTravel);
+      host.innerHTML = renderNoticeTicket(NOTICE_COPY.noTravel);
       return;
     }
 
@@ -465,7 +468,7 @@ export function renderResult({ main }, ctx) {
       drawCard();
     } else {
       // 이전 이동 시간으로 계산한 값은 그대로 두고, 다시 확인하지 못했음을 알린다.
-      noticeHost.innerHTML = noticeHtml(MESSAGES.travelRecheckFailed);
+      noticeHost.innerHTML = failureNoticeHtml([NOTICE_COPY.travelRecheckFailed.lead]);
       drawActions();
     }
     return route.ok;
@@ -502,7 +505,8 @@ export function renderResult({ main }, ctx) {
 
     manualBusy = false;
     // 실패한 항목마다 안내를 보인다. (이동 시간 안내는 recheckTravel 이 이미 보였을 수 있어 여기서 한 번에 다시 정한다)
-    noticeHost.innerHTML = [flightFailed ? noticeHtml(MESSAGES.refreshFailed) : '', travelOk ? '' : noticeHtml(MESSAGES.travelRecheckFailed)].join('');
+    const failures = [flightFailed ? NOTICE_COPY.refreshFailed.lead : null, travelOk ? null : NOTICE_COPY.travelRecheckFailed.lead].filter(Boolean);
+    noticeHost.innerHTML = failures.length ? failureNoticeHtml(failures) : '';
     syncRefreshButton();
   }
 

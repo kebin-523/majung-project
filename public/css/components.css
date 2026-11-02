@@ -45,7 +45,8 @@
    - 안내 상자(.notice): 글자가 상자 안쪽 여백(16px)과 맞는다 (넓어진 범위는 상자 안쪽) */
 .text-actions > .btn--text:first-child,
 .actions > .btn--text:first-child,
-.notice > .btn--text { margin-left: calc(-1 * var(--space-3)); }
+.notice > .btn--text,
+.notice-ticket .ticket__stub > .btn--text { margin-left: calc(-1 * var(--space-3)); }
 
 /* 아이콘 (선 1.5px SVG를 마스크로 써서 글자색을 따라간다) */
 .icon {
@@ -466,7 +467,8 @@ select.field__input { color: var(--color-ink); }
 
 /* 추천 출발 시각 카드 (가이드 6장): Peach 배경, 모서리 20px, 안쪽 여백 24px */
 /* 추천 출발 시각 카드 = 비행기 티켓 (DesignGuide 6장 "티켓 모양", 가정). 구역마다 가는 선으로 나누고, 쪽지는 양옆이 파인 절취선으로 떼어 낸다 */
-.reco {
+.reco,
+.notice-ticket {
   position: relative;
   display: flex;
   flex-direction: column;
@@ -969,3 +971,33 @@ button.chip:active { transform: scale(0.98); }
 }
 
 .notice__text { font-size: var(--fs-body); line-height: var(--lh-body); }
+
+/* 안내 티켓 (DesignGuide 6장, 가정): 윗 띠 + 위 구역(핵심 문장 · 보조 문장) + (절취선 · 쪽지: 곁들이는 정보 · 행동).
+   띠·구역·절취선은 추천 출발 시각 카드의 .ticket__* 규칙을 그대로 쓴다. 글자·색은 단계마다 하나씩이다:
+   ① 핵심 문장 20px SemiBold Sunset Deep → ② 보조 문장 16px Regular Ink → ③ 곁들이는 정보 라벨 14px Warm Gray · 값 16px SemiBold Ink → ④ Text 버튼 */
+.notice-ticket__top { gap: var(--space-2); }
+
+.notice-ticket__lead {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  margin: 0;
+  color: var(--color-sunset-deep); /* Sunset Deep on Peach 4.69 (일반 글자 기준 4.5 통과) */
+  font-size: var(--fs-lead);
+  line-height: var(--lh-lead);
+  font-weight: 600;
+}
+
+.notice-ticket__lead .icon { flex: none; margin-top: var(--space-1); } /* 20px 아이콘을 첫 줄(28px) 가운데에 */
+
+/* 보조 문장은 핵심 문장 글자의 시작 위치(아이콘 20px + 간격)에 맞춘다 */
+.notice-ticket__detail { margin: 0; padding-left: calc(20px + var(--space-2)); font-size: var(--fs-body); line-height: var(--lh-body); }
+
+.notice-ticket .ticket__stub { display: flex; flex-direction: column; align-items: stretch; gap: var(--space-1); }
+
+.notice-ticket__fact { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-3); margin: 0; }
+.notice-ticket__fact-label { font-size: var(--fs-chip); line-height: var(--lh-chip); font-weight: 600; color: var(--color-warm-gray); }
+.notice-ticket__fact-value { font-size: var(--fs-body); line-height: var(--lh-body); font-weight: 600; }
+
+.notice-ticket .ticket__stub > .btn--text { align-self: flex-start; }
+.notice-ticket + .notice-ticket { margin-top: var(--space-3); }
