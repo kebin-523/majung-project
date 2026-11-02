@@ -2,6 +2,8 @@
 // 이 파일에는 ① 대화상자 뼈대(openBottomSheet)와 ② "여유 시간 정하기" 내용(openBufferSheet)이 함께 있다.
 // 가이드에 바텀시트는 이것 하나뿐이라 파일을 나누지 않았다.
 import { BUFFER_MAX_MIN, BUFFER_MIN_MIN, BUFFER_STEP_MIN } from '../../config.js';
+import { ALERT_LEAD_OPTIONS_MIN, alertLeadLabel } from '../../domain/alertLead.js';
+import { icon } from './icon.js';
 
 /* ───────────────────────── ① 대화상자 뼈대 ───────────────────────── */
 // - 열리면 포커스가 시트 제목으로 이동하고, 시트 밖(.app)은 inert로 막아 화면 읽기 프로그램·Tab이 못 들어가게 한다.
@@ -184,6 +186,70 @@ export function openBufferSheet({ current: values, onSave, getReturnFocus }) {
           // 값이 끝에 닿아 누른 버튼이 비활성이 되면 포커스를 잃지 않도록 반대쪽 버튼으로 옮긴다.
           if (button.disabled) row.querySelector(`[data-step="${-Number(button.dataset.step)}"]`).focus();
         });
+      });
+    },
+  });
+}
+
+/* ───────────────────── ③ 알림 받기: 출발 몇 분 전부터 알릴지 (내용) ───────────────────── */
+// 선택지 하나를 고르고 "저장"을 누르면 반영된다. (Esc·바깥 누르기는 저장하지 않고 닫는다.)
+// 이번 범위의 알림은 화면 안 안내뿐이라, 이 값은 "곧 출발" 상태 줄이 나타나는 시점이다. 푸시 알림은 보내지 않는다고 팝업에도 적는다.
+
+function alertOptionsHtml(selected) {
+  return ALERT_LEAD_OPTIONS_MIN.map((min) => {
+    const on = min === selected;
+    return `
+      <button class="chip alert-option" type="button" role="radio" aria-checked="${on}" data-min="${min}" tabindex="${on ? 0 : -1}">
+        <span>${alertLeadLabel(min)}</span>
+        <span class="alert-option__check">${icon('check')}<span class="sr-only">선택됨</span></span>
+      </button>`;
+  }).join('');
+}
+
+/**
+ * @param {object} options
+ * @param {number} options.current  지금 적용 중인 알림 시점(분)
+ * @param {(min: number) => void} options.onSave
+ * @param {() => HTMLElement | null} options.getReturnFocus
+ */
+export function openAlertSheet({ current: selected, onSave, getReturnFocus }) {
+  let draft = selected;
+  const bodyHtml = `
+    <div class="alert-options" role="radiogroup" aria-label="알림 시점">${alertOptionsHtml(draft)}
+    </div>
+    <p class="caption">이 화면을 열어 둔 동안, 고른 시간부터 "곧 나갈 시간이에요"로 알려드려요. 푸시 알림은 아직 보내지 않아요.</p>`;
+
+  return openBottomSheet({
+    title: '출발 몇 분 전에 알려드릴까요?',
+    bodyHtml,
+    onSave: () => onSave(draft),
+    getReturnFocus,
+    onMount(sheet) {
+      const group = sheet.querySelector('.alert-options');
+      const radios = () => [...group.querySelectorAll('[role="radio"]')];
+
+      function choose(button) {
+        draft = Number(button.dataset.min);
+        for (const radio of radios()) {
+          const on = radio === button;
+          radio.setAttribute('aria-checked', String(on));
+          radio.tabIndex = on ? 0 : -1;
+        }
+      }
+
+      group.addEventListener('click', (event) => {
+        const button = event.target.closest('[role="radio"]');
+        if (button) choose(button);
+      });
+      // 방향키로 옮기면 바로 고른다. (라디오 묶음의 일반적인 키보드 동작)
+      group.addEventListener('keydown', (event) => {
+        const step = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 }[event.key];
+        if (!step) return;
+        event.preventDefault();
+        const list = radios();
+        const next = list[(list.indexOf(document.activeElement) + step + list.length) % list.length];
+        choose(next);
+        next.focus();
       });
     },
   });

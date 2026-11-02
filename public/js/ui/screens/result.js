@@ -37,6 +37,11 @@ import { renderTimeline } from '../components/routeTimeline.js';
 import { renderCheckedLine, renderRecommendCardContent } from '../components/recommendCard.js';
 import { renderNoticeTicket } from '../components/noticeTicket.js';
 import { playTicketPrint } from '../motion/ticketPrint.js';
+import { renderActionBar } from '../components/actionBar.js';
+import { showToast } from '../components/toast.js';
+import { openAlertSheet } from '../components/bottomSheet.js';
+import { alertSavedMessage, readAlertLead } from '../../domain/alertLead.js';
+import { SHARE_COPIED_MESSAGE, SHARE_FAILED_MESSAGE, buildShareUrl, copyText } from '../../domain/share.js';
 
 // 카드의 "상태 줄": 알려야 하는 경우(지남 · 착륙 · 곧 출발)에만 한 문장을 보여 준다. 평소 상태에는 없다. (사용자 요청)
 // 도착 변경은 카드 위의 변경 안내가, 최신 정보 확인 못 함은 쪽지의 확인 시각 줄이 알리므로 여기서는 다시 말하지 않는다.
@@ -65,12 +70,13 @@ const MESSAGES = {
  * @param {boolean} [input.hasChange]  도착 정보가 바뀐 적이 있는가 → "도착 시각이 바뀌었어요" 배지 (안내 띠를 이미 본 뒤에도 배지로 남는다)
  * @param {boolean} [input.checking]   최신 정보를 확인하는 중인가
  * @param {{name?: string, address?: string} | null} [input.origin]  사용자가 고른 출발지. 근거 타임라인의 첫 점에 이름과 주소를 다시 보여 준다.
+ * @param {number} [input.alertLeadMin]  "알림 받기"에서 고른, 추천 출발 몇 분 전부터 "곧 출발"로 알릴지
  * @param {boolean} [input.refreshing]  새로고침으로 이동 시간을 다시 조회하는 중인가 (버튼을 막는다)
  */
 /** 지금과 다른 날이면 날짜 라벨("내일" 등), 같은 날이면 null */
 const dayOrNull = (ms, now) => (isSameDayKst(ms, now) ? null : dayLabel(ms, now));
 
-export function buildResultViewModel({ flight, drive, buffers, now, hasChange = false, checking = false, refreshing = false, origin = null }) {
+export function buildResultViewModel({ flight, drive, buffers, now, hasChange = false, checking = false, refreshing = false, origin = null, alertLeadMin }) {
   const arrival = latestArrival(flight);
   const { departureMs, terminalArrivalMs, meetAtMs } = recommendDeparture({
     arrival,
@@ -83,6 +89,7 @@ export function buildResultViewModel({ flight, drive, buffers, now, hasChange = 
     now,
     departure: departureMs,
     lastChecked: lastConfirmedAt(flight),
+    soonMin: alertLeadMin, // 사용자가 "알림 받기"에서 고른 시점. 정하지 않았으면 기본 "곧 출발" 기준을 쓴다
     hasUnseenChange: hasChange, // status.js의 이름은 "unseen"이지만, 여기서는 "변경이 있었음"을 배지로 남기는 데 쓴다.
     // landed 는 넘기지 않는다. 도착한 편은 이 함수를 부르기 전에 안내 상자로 가므로, 카드의 상태 줄에 'landed' 가 들어가는 일이 없다.
   });
@@ -191,6 +198,7 @@ export function renderResult({ main }, ctx) {
   let checking = polls();
   let travelBusy = false;
   let manualBusy = false; // 새로고침 버튼으로 시작한 확인이 끝나기 전까지 버튼을 막는다
+  let alertLeadMin = readAlertLead(state.alertLeadMin); // "알림 받기"에서 고른 시점. 이 탭 세션에만 저장한다
   let pulsed = false; // "출발" 배지 모션은 이 화면에서 한 번만
   let lastVm = null;
   let renderedBadgeKey = null; // 화면에 실제로 그려진 배지. (lastVm은 확인 시각 줄만 바꿀 때도 갱신되어 비교 기준으로 쓸 수 없다)
@@ -212,13 +220,12 @@ export function renderResult({ main }, ctx) {
     </div>
     <div id="notice-host" class="slot" aria-live="polite"></div>
     <div id="actions-host" class="slot actions"></div>
-    <div class="text-actions">
-      <button id="change-flight-btn" class="btn btn--text" type="button">항공편 바꾸기</button>
-      <button id="back-btn" class="btn btn--text" type="button">이전</button>
-    </div>`;
+    <!-- 하단 버튼 그룹(항공편 변경 · 공유하기 · 알림 받기). 추천 카드가 있을 때만 보인다 -->
+    <div id="action-bar-host" class="slot">${renderActionBar()}</div>
+`;
 
-  const textActions = main.querySelector('.text-actions');
-  const changeBtn = main.querySelector('#change-flight-btn');
+  const actionBarHost = main.querySelector('#action-bar-host');
+  const changeBtn = actionBarHost.querySelector('[data-action="change-flight"]'); // 안내 상자에서 카드로 돌아올 때 포커스를 돌려줄 버튼
   const announcer = main.querySelector('#flight-announcer');
   const bannerHost = main.querySelector('#banner-host');
   const host = main.querySelector('#card-host');
@@ -229,7 +236,7 @@ export function renderResult({ main }, ctx) {
   const getBufferChip = () => main.querySelector(`[data-chip="buffer"][data-chip-row="${lastChipRow}"]`) ?? main.querySelector('[data-chip="buffer"]');
 
   const makeVm = () => buildResultViewModel({
-    flight, drive, buffers, now: ctx.now(), hasChange: change !== null, checking, refreshing: travelBusy || manualBusy, origin: state.origin,
+    flight, drive, buffers, now: ctx.now(), hasChange: change !== null, checking, refreshing: travelBusy || manualBusy, origin: state.origin, alertLeadMin,
   });
 
   function openSheet() {
@@ -272,12 +279,8 @@ export function renderResult({ main }, ctx) {
   function drawCard({ animate = null } = {}) {
     const screen = screenOf();
 
-    // 안내 상자 안에 "항공편 바꾸기"가 있으므로, 상자를 보일 때는 아래쪽의 같은 버튼을 뺀다. (카드로 돌아오면 다시 넣는다)
-    if (screen === 'card') {
-      if (!changeBtn.isConnected) textActions.prepend(changeBtn);
-    } else {
-      changeBtn.remove();
-    }
+    // 안내 상자 안에 "항공편 바꾸기"가 있으므로, 상자를 보일 때는 하단 버튼 그룹을 뺀다. (카드로 돌아오면 다시 보인다)
+    actionBarHost.hidden = screen !== 'card';
 
     if (screen !== 'card') {
       // 추천 시각을 계산하지도 보여 주지도 않는다. 카드 시절의 띠·안내·행동 버튼도 함께 치운다.
@@ -333,7 +336,7 @@ export function renderResult({ main }, ctx) {
   function focusIsInRemovable() {
     const active = document.activeElement;
     if (!active || active === document.body) return false;
-    return host.contains(active) || actionsHost.contains(active) || noticeHost.contains(active) || active === changeBtn;
+    return host.contains(active) || actionsHost.contains(active) || noticeHost.contains(active) || actionBarHost.contains(active);
   }
 
   /** 확인 시각 줄만 바꾼다. (카드 전체를 다시 읽어 주지 않도록) */
@@ -531,7 +534,7 @@ export function renderResult({ main }, ctx) {
     slot: main.querySelector('.ticket-slot'),
     lip: main.querySelector('.ticket-lip'),
     edge: main.querySelector('.ticket-edge'),
-    afterGroup: [noticeHost, actionsHost, textActions], // 출력이 끝난 뒤 페이드 인
+    afterGroup: [noticeHost, actionsHost, actionBarHost], // 출력이 끝난 뒤 페이드 인
     ready: firstCheck,
   });
 
@@ -561,10 +564,30 @@ export function renderResult({ main }, ctx) {
     else if (vm.stale !== lastVm.stale) updateCheckedLine();
   }, STATUS_RECHECK_INTERVAL_MS);
 
-  changeBtn.addEventListener('click', () => ctx.navigate('flight'));
+  // 하단 버튼 그룹: 항공편 변경 → 항공편 검색 화면, 공유하기 → 링크 복사 + 토스트, 알림 받기 → 알림 시점 팝업
+  actionBarHost.addEventListener('click', async (event) => {
+    const action = event.target.closest('[data-action]')?.dataset.action;
+    if (action === 'change-flight') {
+      ctx.navigate('flight');
+    } else if (action === 'share') {
+      const copied = await copyText(buildShareUrl(location));
+      showToast(copied ? SHARE_COPIED_MESSAGE : SHARE_FAILED_MESSAGE);
+    } else if (action === 'alert') {
+      openAlertSheet({
+        current: alertLeadMin,
+        getReturnFocus: () => actionBarHost.querySelector('[data-action="alert"]'),
+        onSave(min) {
+          alertLeadMin = min;
+          save({ ...load(), alertLeadMin });
+          drawCard(); // 새 시점으로 "곧 출발" 상태를 다시 정한다
+          showToast(alertSavedMessage(min));
+        },
+      });
+    }
+  });
   host.addEventListener('click', (event) => {
     if (event.target.closest('[data-action="change-flight"]')) ctx.navigate('flight');
+    else if (event.target.closest('[data-action="change-origin"]')) ctx.navigate('origin'); // 출발 블록의 출발지 "변경": 출발지 설정 화면
     else if (event.target.closest('[data-action="refresh"]')) manualRefresh();
   });
-  main.querySelector('#back-btn').addEventListener('click', () => ctx.navigate('origin'));
 }

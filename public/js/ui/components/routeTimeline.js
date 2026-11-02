@@ -25,7 +25,7 @@ import { icon } from './icon.js';
 const NB = ' '; // 줄바꿈 금지 공백
 
 /** 지점 하나: 블록 밖 왼쪽에 원형 아이콘, 블록 안에 종류 라벨 · (이름) · (주소) · 오른쪽 시각(날짜 라벨이 있으면 위에) · (딸린 정보 행) */
-function stop(kind, iconName, { day, clock, spoken, label, place, sub, basis = '' }) {
+function stop(kind, iconName, { day, clock, spoken, label, place, sub, side = '', basis = '' }) {
   return `
         <li class="itinerary__stop itinerary__stop--${kind}">
           <span class="itinerary__badge" aria-hidden="true">${icon(iconName)}</span>
@@ -39,7 +39,7 @@ function stop(kind, iconName, { day, clock, spoken, label, place, sub, basis = '
               ${day ? `<span class="itinerary__day" aria-hidden="true">${day}</span>` : ''}
               <span class="itinerary__time tabular" aria-hidden="true">${clock}</span>
               <span class="sr-only">${spoken}</span>
-            </span>${basis}
+            </span>${side}${basis}
           </div>
         </li>`;
 }
@@ -64,6 +64,16 @@ function settingRow(label, value, spoken, row) {
                 <dt>${label}</dt>
                 <dd><span aria-hidden="true">${value}</span><span class="sr-only">${spoken}</span><button class="itinerary__change" type="button" data-chip="buffer" data-chip-row="${row}" aria-haspopup="dialog" aria-label="${label} ${spoken}, 변경하려면 누르세요">변경</button></dd>
               </div>`;
+}
+
+/**
+ * 출발지 "변경" 버튼: 출발 블록의 주소 오른쪽에 있는 글자 버튼. 누르면 출발지 설정 화면(3단계)으로 간다. (연결: screens/result.js)
+ * 이전 화면이 출발지 설정이라 "이전" 버튼 대신 같은 목적의 기능을 여기에 묶었다. 여유 시간 시트를 여는 "변경"(data-chip)과 다른 버튼이다.
+ */
+function originChangeButton(originName) {
+  const name = originName ? ` ${escapeHtml(originName)}` : '';
+  return `
+            <button class="itinerary__change itinerary__change--origin" type="button" data-action="change-origin" aria-label="출발지${name}, 변경하려면 누르세요">변경</button>`;
 }
 
 const basisList = (rows) => `
@@ -102,6 +112,7 @@ export function renderTimeline(vm) {
     label: '출발',
     place: vm.originName || '출발지',
     sub: vm.originAddress,
+    side: originChangeButton(vm.originName),
     basis: basisList(basisRow('자동차 이동', `${vm.travelMin}분`, `${vm.travelMin}분`)),
   })}${stop('terminal', 'car', {
     day: vm.terminalArrivalDay,

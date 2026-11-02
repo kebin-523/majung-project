@@ -736,6 +736,11 @@ button.chip { cursor: pointer; }
 
 .itinerary__change:hover { text-decoration: underline; }
 
+/* 출발지 "변경" (출발 블록): 오른쪽 열을 두 줄로 나눠 위는 출발 시각, 아래는 이 버튼(주소 줄 높이)이다. 이름·주소는 두 줄에 걸쳐 시각과 겹치지 않는다 */
+.itinerary__stop--depart .itinerary__block > .itinerary__what { grid-row: 1 / span 2; }
+.itinerary__stop--depart .itinerary__when { grid-row: 1; }
+.itinerary__change--origin { grid-column: 2; grid-row: 2; align-self: end; }
+
 .itinerary__change:focus-visible,
 .icon-btn:focus-visible { outline: 2px solid var(--color-ink); outline-offset: 2px; }
 
@@ -760,6 +765,70 @@ button.chip { cursor: pointer; }
 .icon-btn:disabled { opacity: 0.4; cursor: default; }
 
 .text-actions { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+
+/* 하단 버튼 그룹 (DesignGuide 6장 "하단 버튼 그룹", 가정, 사용자 요청: 아이콘 + 글자 알약 버튼 참고 이미지).
+   세 버튼이 같은 폭으로 나란하고, 아이콘이 위·글자가 아래다. 첫 버튼만 Ink 로 채우고 나머지는 Peach 바탕 + Border 선이다.
+   높이 64px(터치 영역 44px 이상), 글자는 14px SemiBold(칩 글자와 같다), 눌릴 때 살짝 눌리는 반응(150ms) */
+.action-bar { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-2); }
+
+.action-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-1);
+  min-height: 64px;
+  padding: var(--space-2) var(--space-1);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-pill);
+  background: var(--color-peach);
+  color: var(--color-ink);
+  cursor: pointer;
+  transition: transform var(--dur-fast) var(--ease);
+}
+
+.action-btn--filled { border-color: var(--color-ink); background: var(--color-ink); color: var(--color-cream); }
+.action-btn:active { transform: scale(0.98); }
+.action-btn:focus-visible { outline: 2px solid var(--color-ink); outline-offset: 2px; }
+.action-btn__label { font-size: var(--fs-chip); line-height: var(--lh-chip); font-weight: 600; white-space: nowrap; }
+
+/* 토스트 (DesignGuide 6장 "토스트", 가정): 화면 아래 가운데에 잠깐 떴다 사라지는 확인 문구. Ink 바탕 + Cream 글자(대비 15) */
+.toast-region {
+  position: fixed;
+  z-index: 60;
+  left: 0;
+  right: 0;
+  bottom: calc(var(--space-4) + env(safe-area-inset-bottom, 0px));
+  display: flex;
+  justify-content: center;
+  padding-inline: var(--space-3);
+  pointer-events: none;
+}
+
+.toast {
+  max-width: 440px;
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-button);
+  background: var(--color-ink);
+  color: var(--color-cream);
+  font-size: var(--fs-body);
+  line-height: var(--lh-body);
+  font-weight: 600;
+  text-align: center;
+  opacity: 0;
+  transform: translateY(var(--space-2));
+  transition: opacity var(--dur-base) var(--ease), transform var(--dur-base) var(--ease);
+}
+
+.toast.is-visible { opacity: 1; transform: none; }
+
+/* 알림 받기 팝업의 선택지: 칩 모양, 선택하면 Amber 배경 + Ink 글자 + 체크 아이콘(색만으로 구분하지 않는다) */
+.alert-options { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+.alert-option { cursor: pointer; }
+.alert-option__check { display: inline-flex; visibility: hidden; }
+.alert-option[aria-checked="true"] { border-color: var(--color-amber); background: var(--color-amber); }
+.alert-option[aria-checked="true"] .alert-option__check { visibility: visible; }
+.alert-option:focus-visible { outline: 2px solid var(--color-ink); outline-offset: 2px; }
 
 /* 여유 시간을 저장해 다시 계산됐을 때: 시각 숫자만 부드럽게 교체 (250ms) */
 .reco__time.is-updated { animation: time-swap var(--dur-base) var(--ease); }

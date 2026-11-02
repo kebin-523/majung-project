@@ -76,7 +76,54 @@ test('시간표: 이동·대기·입국 후 만남은 블록 안쪽 하단(구�
   const meet = blockOf('meet');
   assert.ok(meet.includes('<dt>비행기 도착</dt>') && meet.includes('<dt>입국 후 만남까지</dt>'));
   assert.equal(depart.split('class="itinerary__basis"').length - 1, 1);
-  assert.ok(!depart.includes('itinerary__change')); // 이동 시간은 길찾기로 구한 값이라 고치는 버튼이 없다
+  assert.ok(!depart.includes('data-chip="buffer"')); // 이동 시간은 길찾기로 구한 값이라 설정값 "변경" 버튼이 없다 (출발지 "변경"은 주소 옆에 따로 있다)
+});
+
+test('출발 블록: 주소 오른쪽에 출발지 "변경" 버튼이 있다 (글자만, 출발지 설정 화면으로 간다)', () => {
+  const html = renderTimeline(vmOf());
+  const depart = html.slice(html.indexOf('itinerary__stop--depart'), html.indexOf('itinerary__stop--terminal'));
+  const button = depart.match(/<button class="itinerary__change itinerary__change--origin"([^>]*)>([\s\S]*?)<\/button>/);
+  assert.ok(button, '출발 블록에 출발지 변경 버튼이 있다');
+  assert.equal(button[2].trim(), '변경'); // 아이콘 없이 글자만
+  assert.match(button[1], /type="button"/);
+  assert.match(button[1], /data-action="change-origin"/);
+  assert.match(button[1], /aria-label="출발지 합정역, 변경하려면 누르세요"/);
+  assert.ok(!/data-chip/.test(button[1])); // 여유 시간 시트를 여는 버튼과 구분된다
+  // 주소 다음에, 블록 안 구분선(딸린 정보 행) 앞에 온다
+  assert.ok(depart.indexOf('itinerary__sub') < depart.indexOf('itinerary__change--origin'));
+  assert.ok(depart.indexOf('itinerary__change--origin') < depart.indexOf('itinerary__basis'));
+});
+
+test('출발 블록: 출발지 "변경" 버튼은 출발 블록에만 있고, 출발지 이름은 이스케이프해 읽기용 이름에 쓴다', () => {
+  const html = renderTimeline(vmOf());
+  assert.equal(html.split('data-action="change-origin"').length - 1, 1);
+  const terminal = html.slice(html.indexOf('itinerary__stop--terminal'));
+  assert.ok(!terminal.includes('change-origin'));
+  const evil = renderTimeline(vmOf({ origin: { name: '"><img src=x>', address: '' } }));
+  assert.ok(!evil.includes('<img'));
+  assert.ok(evil.includes('aria-label="출발지 &quot;&gt;&lt;img src=x&gt;, 변경하려면 누르세요"'));
+});
+
+test('출발 블록: 출발지가 저장돼 있지 않으면 읽기용 이름은 "출발지"다', () => {
+  const html = renderTimeline(vmOf({ origin: null }));
+  assert.ok(html.includes('aria-label="출발지, 변경하려면 누르세요"'));
+});
+
+test('출발지 "변경" 버튼은 오른쪽 열 아래쪽(주소 줄 높이)에 놓이고 출발 시각과 겹치지 않는다 (CSS)', () => {
+  const css = readFileSync(new URL('../public/css/components.css', import.meta.url), 'utf8').replace(/\r\n/g, '\n');
+  const rule = css.match(/\.itinerary__change--origin \{([^}]*)\}/);
+  assert.ok(rule, '출발지 변경 버튼 규칙이 있다');
+  assert.match(rule[1], /grid-column: 2/);
+  assert.match(rule[1], /grid-row: 2/); // 위(1행)는 출발 시각, 아래(2행)가 주소 줄 높이의 변경 버튼이라 서로 겹치지 않는다
+  assert.match(rule[1], /align-self: end/);
+  assert.match(css, /\.itinerary__stop--depart \.itinerary__block > \.itinerary__what \{ grid-row: 1 \/ span 2; \}/); // 이름·주소는 두 행에 걸친다
+});
+
+test('결과 화면: 하단 "이전" 버튼을 없애고, 출발지 "변경"이 출발지 설정 화면으로 이동한다', () => {
+  const source = readFileSync(new URL('../public/js/ui/screens/result.js', import.meta.url), 'utf8');
+  assert.ok(!source.includes('id="back-btn"') && !source.includes('#back-btn'));
+  assert.ok(!source.includes('text-actions'));
+  assert.match(source, /\[data-action="change-origin"\]'\)\) ctx\.navigate\('origin'\)/);
 });
 
 test('시간표: 도착 후 대기·입국 후 만남에는 "와 있을 시간" 같은 긴 설명 문구를 쓰지 않는다', () => {
