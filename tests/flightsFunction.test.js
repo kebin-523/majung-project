@@ -196,6 +196,17 @@ test('실패 로그에 메시지·HTTP 상태·본문 앞부분·keyEmpty 가 �
   assert.match(logged.at(-1), /keyEmpty=true/);
 });
 
+test('실패 로그에 키 지문(길이·해시 앞 8자)이 남고 키 원문은 남지 않는다', async () => {
+  await run(SEARCH, { status: 403, text: 'Forbidden-ish' });
+  const log = logged.at(-1);
+  assert.match(log, /keyLen=18 keySha=[0-9a-f]{8}/);
+  assert.ok(!log.includes(KEY));
+  const again = await (async () => { await run(SEARCH, { status: 403, text: 'x' }); return logged.at(-1); })();
+  assert.equal(log.match(/keySha=([0-9a-f]{8})/)[1], again.match(/keySha=([0-9a-f]{8})/)[1]); // 같은 키는 같은 지문
+  await run(SEARCH, { status: 403, text: 'x' }, { apiKey: 'other-key' });
+  assert.notEqual(log.match(/keySha=([0-9a-f]{8})/)[1], logged.at(-1).match(/keySha=([0-9a-f]{8})/)[1]);
+});
+
 test('키가 없으면 외부를 부르지 않고 config', async () => {
   for (const apiKey of [undefined, '', '   ']) {
     const { response, calls } = await run(SEARCH, { text: body([row()]) }, { apiKey });

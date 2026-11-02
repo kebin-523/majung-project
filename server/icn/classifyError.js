@@ -9,6 +9,8 @@
 // 이 글자 표는 가이드 기준이고 실제로 받아 본 적이 없다. 이때의 HTTP 상태 코드도 확인 못 함이다.
 // 그래서 글자를 먼저 보고, 상태 코드는 서버 오류(5xx)일 때만 보조로 쓴다.
 
+import { createHash } from 'node:crypto';
+
 export const REASONS = Object.freeze(['notfound', 'quota', 'config', 'error']);
 
 const REASON_BY_TEXT = new Map([
@@ -47,6 +49,15 @@ export function classifyHttpStatus(status) {
 /** fetch 가 던진 오류(연결 실패, DNS, TLS, 시간 초과)는 모두 일시 오류로 본다. */
 export function classifyThrown() {
   return 'error';
+}
+
+/**
+ * 키 지문: 길이와 SHA-256 앞 8자(32비트). 키 원문은 복원할 수 없고, 배포 환경에 들어간 키가 내 PC의 키와 같은 값인지만 비교하려는 용도다.
+ * 키가 비었으면 null.
+ */
+export function keyFingerprint(key) {
+  if (typeof key !== 'string' || key === '') return null;
+  return { length: key.length, sha: createHash('sha256').update(key).digest('hex').slice(0, 8) };
 }
 
 /**

@@ -16,7 +16,7 @@
 //   헤더 이름과 뜻은 docs.netlify.com "Caching overview" 로 확인했다: Netlify-CDN-Cache-Control 은 Netlify CDN 에만 적용되고,
 //   Cache-Control 은 브라우저에도 적용된다. 브라우저는 매번 다시 확인(max-age=0, must-revalidate)하게 두고 CDN 만 5분 캐시한다.
 //   서버리스 함수 응답은 쿼리 문자열이 기본으로 캐시 키에 들어가지만, 같은 URL 이 항상 같은 Netlify-Vary 값을 주도록 모든 응답에 붙인다.
-import { classifyThrown, redactSecrets } from './classifyError.js';
+import { classifyThrown, keyFingerprint, redactSecrets } from './classifyError.js';
 import { interpretArrivalsResponse } from './normalizeArrivals.js';
 
 export const ARRIVALS_URL = 'https://apis.data.go.kr/B551177/StatusOfPassengerFlightsDeOdp/getPassengerArrivalsDeOdp';
@@ -152,6 +152,8 @@ export async function handleFlights(request, { apiKey, fetch: fetchImpl, now, ti
     console.error(`[flights] config: 서비스 키가 설정되지 않았어요. keyEmpty=${keyEmpty}`);
     return failure('config');
   }
+  const print = keyFingerprint(serviceKey);
+  const keyInfo = `keyLen=${print.length} keySha=${print.sha}`; // 키 원문 대신 지문만 남긴다 (배포의 키와 내 키가 같은 값인지 비교용)
   const secrets = [serviceKey, typeof apiKey === 'string' ? apiKey.trim() : ''];
 
   const fetchedAt = now();
@@ -168,7 +170,7 @@ export async function handleFlights(request, { apiKey, fetch: fetchImpl, now, ti
     // 오류 객체 전체는 키가 든 주소를 담을 수 있어 메시지만 꺼내 키를 가리고 남긴다. (응답을 못 받았으니 HTTP 상태·본문은 없다)
     const message = redactSecrets(error?.message ?? String(error), secrets);
     console.error(
-      `[flights] ${classifyThrown()} (${query.mode}) fetch 실패 ${error?.name ?? 'Error'}: ${message} | httpStatus=none body=none keyEmpty=${keyEmpty}`,
+      `[flights] ${classifyThrown()} (${query.mode}) fetch 실패 ${error?.name ?? 'Error'}: ${message} | httpStatus=none body=none keyEmpty=${keyEmpty} ${keyInfo}`,
     );
     return failure(classifyThrown());
   }
@@ -181,7 +183,7 @@ export async function handleFlights(request, { apiKey, fetch: fetchImpl, now, ti
     // 공항 API 가 돌려준 HTTP 상태와 본문 앞부분(키는 가리고 200자까지)을 남긴다.
     const bodyHead = redactSecrets(text, secrets).replace(/\s+/g, ' ');
     console.error(
-      `[flights] ${result.reason} (${query.mode}) | httpStatus=${status} body=${bodyHead} keyEmpty=${keyEmpty}`,
+      `[flights] ${result.reason} (${query.mode}) | httpStatus=${status} body=${bodyHead} keyEmpty=${keyEmpty} ${keyInfo}`,
     );
     return failure(result.reason);
   }
